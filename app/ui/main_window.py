@@ -1,7 +1,5 @@
 from __future__ import annotations
-
-from pathlib import Path
-
+from datetime import date, datetime, timedelta
 from PyQt6.QtCore import QElapsedTimer, QRect, QTimer, Qt
 from PyQt6.QtGui import QAction, QColor, QKeySequence, QPainter, QPen
 from PyQt6.QtWidgets import (
@@ -20,8 +18,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.core.storage import Storage
+from app.core.app_state import AppState
 from app.core.timer import FocusTimer, TimerState
+from app.data.storage import SessionRow, Storage
 from app.scenes.base import BaseScene
 from app.scenes.flight import FlightScene
 from app.scenes.forest import ForestScene
@@ -72,12 +71,12 @@ class SceneWidget(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(self, storage: Storage, app_state: AppState) -> None:
         super().__init__()
         self.setWindowTitle("Focus Scenes")
         self.resize(1100, 700)
-
-        self.storage = Storage(db_path)
+        self.storage = storage
+        self.app_state = app_state
         self.timer = FocusTimer()
         self.session_duration = 25 * 60
         self.failed_animation = False
@@ -91,11 +90,12 @@ class MainWindow(QMainWindow):
             "Flight": FlightScene(),
             "Ice": IceScene(),
         }
+        self.theme_to_ui = {"forest": "Forest", "flight": "Flight", "ice": "Ice"}
+        self.ui_to_theme = {v: k for k, v in self.theme_to_ui.items()}
 
         self._build_ui()
         self._connect_signals()
-        self._on_scene_changed()
-
+        self._sync_theme_from_state()
         self.frame_timer = QTimer(self)
         self.frame_timer.setInterval(33)
         self.frame_timer.timeout.connect(self._on_frame)
@@ -159,8 +159,10 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right)
         stats_box = QWidget()
         stats_form = QFormLayout(stats_box)
+        self.coins_label = QLabel("0")
         self.today_success_label = QLabel("0")
         self.streak_label = QLabel("0")
+        stats_form.addRow("Coins:", self.coins_label)
         stats_form.addRow("Success today:", self.today_success_label)
         stats_form.addRow("Current streak:", self.streak_label)
 
@@ -183,6 +185,13 @@ class MainWindow(QMainWindow):
         self.preset_combo.currentTextChanged.connect(self._apply_preset)
         self.custom_minutes.valueChanged.connect(self._apply_preset)
         self.scene_combo.currentTextChanged.connect(self._on_scene_changed)
+        self.app_state.theme_changed.connect(self._sync_theme_from_state)
+        self.app_state.coins_changed.connect(lambda _coins: self.refresh_stats())
+
+    def _sync_theme_from_state(self, *_args) -> None:
+        ui_theme = self.theme_to_ui.get(self.app_state.selected_theme, "Forest")
+        self.scene_combo.setCurrentText(ui_theme)
+        self.scene_widget.set_scene(self.scenes[ui_theme])
 
     def _apply_preset(self, *_args) -> None:
         text = self.preset_combo.currentText()
@@ -195,7 +204,9 @@ class MainWindow(QMainWindow):
             self.session_duration = self.custom_minutes.value() * 60
 
     def _on_scene_changed(self) -> None:
-        self.scene_widget.set_scene(self.scenes[self.scene_combo.currentText()])
+        ui_theme = self.scene_combo.currentText()
+        self.scene_widget.set_scene(self.scenes[ui_theme])
+        self.app_state.set_theme(self.ui_to_theme.get(ui_theme, "forest"))
 
     def _space_toggle(self) -> None:
         if self.timer.state == TimerState.IDLE:
@@ -212,6 +223,9 @@ class MainWindow(QMainWindow):
         except RuntimeError:
             QMessageBox.information(self, "Timer", "Session is already running")
             return
+
+        self.app_state.start_session(self.session_duration, self.ui_to_theme.get(self.scene_combo.currentText(), "forest"))
+
         self.failed_animation = False
         self._update_buttons()
 
@@ -236,12 +250,15 @@ class MainWindow(QMainWindow):
             return
 
         snapshot = self.timer.snapshot()
+
+        coins_earned = max(1, snapshot.total_seconds // 300) if success else 0
+        self.app_state.finish_session(success=success, coins_earned=coins_earned)
+
         if success:
-            self.storage.add_session(snapshot.total_seconds, self.scene_combo.currentText(), True)
-            QMessageBox.information(self, "Session completed", "Great job! Focus session completed.")
+            QMessageBox.information(self, "Session completed", f"Great job! +{coins_earned} coins")
         else:
             self.failed_animation = True
-            self.storage.add_session(snapshot.total_seconds, self.scene_combo.currentText(), False)
+
             QMessageBox.warning(self, "Session failed", "Session stopped early and was not counted.")
 
         self.refresh_stats()
@@ -272,14 +289,35 @@ class MainWindow(QMainWindow):
         self.resume_btn.setEnabled(state == TimerState.PAUSED)
         self.stop_btn.setEnabled(state in {TimerState.RUNNING, TimerState.PAUSED})
 
+
+    def _success_today(self, rows: list[SessionRow]) -> int:
+        today = date.today().isoformat()
+        return sum(1 for r in rows if r.success and r.started_at.startswith(today))
+
+    def _streak_days(self, rows: list[SessionRow]) -> int:
+        success_days = {
+            datetime.fromisoformat(r.started_at).date()
+            for r in rows
+            if r.success
+        }
+        cursor = date.today()
+        streak = 0
+        while cursor in success_days:
+            streak += 1
+            cursor -= timedelta(days=1)
+        return streak
+
     def refresh_stats(self) -> None:
-        self.today_success_label.setText(str(self.storage.successful_sessions_today()))
-        self.streak_label.setText(str(self.storage.current_streak_days()))
+        rows = self.storage.list_sessions(limit=100)
+        self.coins_label.setText(str(self.app_state.coins_balance))
+        self.today_success_label.setText(str(self._success_today(rows)))
+        self.streak_label.setText(str(self._streak_days(rows)))
         self.history_list.clear()
-        for row in self.storage.recent_sessions(limit=100):
+        for row in rows:
             status = "✅" if row.success else "❌"
-            minutes = row.duration_seconds // 60
-            item_text = f"{status} {row.created_at} · {minutes}m · {row.scene}"
+            minutes = row.duration_sec // 60
+            item_text = f"{status} {row.started_at} · {minutes}m · {row.theme} · +{row.coins_earned}"
+
             QListWidgetItem(item_text, self.history_list)
 
     def closeEvent(self, event) -> None:  # noqa: N802

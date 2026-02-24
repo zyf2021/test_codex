@@ -4,14 +4,22 @@ from math import sin
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
-
+from app.core.assets import load_pixmap
 from app.scenes.base import BaseScene
 
 
 class ForestScene(BaseScene):
     name = "Forest"
 
+
+    def __init__(self) -> None:
+        self._pixmap = load_pixmap("scenes/forest.png")
+
     def render(self, painter: QPainter, rect: QRectF, progress: float, failed: bool, time_s: float) -> None:
+        if self._pixmap is not None:
+            painter.drawPixmap(rect.toRect(), self._pixmap)
+            return
+
         sky = QColor("#d9f6ff") if not failed else QColor("#c7c7c7")
         ground = QColor("#86c06c") if not failed else QColor("#6e6e6e")
         painter.fillRect(rect, sky)

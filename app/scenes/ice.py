@@ -5,13 +5,21 @@ from math import sin
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPolygonF
 
+from app.core.assets import load_pixmap
 from app.scenes.base import BaseScene
 
 
 class IceScene(BaseScene):
     name = "Ice"
+    def __init__(self) -> None:
+        self._pixmap = load_pixmap("scenes/ice.png")
 
     def render(self, painter: QPainter, rect: QRectF, progress: float, failed: bool, time_s: float) -> None:
+        if self._pixmap is not None:
+            painter.drawPixmap(rect.toRect(), self._pixmap)
+            return
+
+
         painter.fillRect(rect, QColor("#e1f5fe"))
         water_top = rect.bottom() - rect.height() * 0.28
         painter.fillRect(QRectF(rect.left(), water_top, rect.width(), rect.height() * 0.28), QColor("#4fc3f7"))

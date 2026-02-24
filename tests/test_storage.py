@@ -1,21 +1,42 @@
-from datetime import date, timedelta
-
-from app.core.storage import Storage
+from app.data.storage import Storage
 
 
-def test_storage_write_read(tmp_path) -> None:
-    storage = Storage(tmp_path / "test.db")
-    storage.add_session(1500, "Forest", True, created_at="2026-01-10T10:00:00")
-    rows = storage.recent_sessions()
+def test_init_db_creates_tables(tmp_path) -> None:
+    db = tmp_path / "app.db"
+    storage = Storage(db)
+    storage.init_db()
+    assert db.exists()
+
+
+def test_set_get_setting(tmp_path) -> None:
+    storage = Storage(tmp_path / "app.db")
+    storage.init_db()
+    storage.set_setting("volume", 0)
+    assert storage.get_setting("volume") == 0
+    assert storage.get_setting("missing", "x") == "x"
+
+
+def test_insert_and_list_sessions(tmp_path) -> None:
+    storage = Storage(tmp_path / "app.db")
+    storage.init_db()
+    storage.insert_session("2026-01-01T10:00:00", 1500, "forest", True, 5)
+    rows = storage.list_sessions()
     assert len(rows) == 1
-    assert rows[0].scene == "Forest"
-    assert rows[0].success is True
+    assert rows[0].theme == "forest"
+    assert rows[0].coins_earned == 5
 
 
-def test_streak_calculation(tmp_path) -> None:
-    storage = Storage(tmp_path / "streak.db")
-    today = date.today()
-    storage.add_session(100, "Forest", True, created_at=f"{today.isoformat()}T09:00:00")
-    storage.add_session(100, "Ice", True, created_at=f"{(today - timedelta(days=1)).isoformat()}T09:00:00")
-    storage.add_session(100, "Flight", True, created_at=f"{(today - timedelta(days=2)).isoformat()}T09:00:00")
-    assert storage.current_streak_days() == 3
+def test_task_add_and_toggle(tmp_path) -> None:
+    storage = Storage(tmp_path / "app.db")
+    storage.init_db()
+    task_id = storage.upsert_task("Write report")
+    active = storage.list_tasks()
+    assert len(active) == 1 and active[0].id == task_id
+
+    storage.toggle_task(task_id, True)
+    active_after = storage.list_tasks()
+    assert active_after == []
+
+    all_tasks = storage.list_tasks(include_done=True)
+    assert all_tasks[0].is_done is True
+
