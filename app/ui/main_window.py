@@ -1,10 +1,15 @@
 from __future__ import annotations
+
+import time
 from datetime import date, datetime, timedelta
-from PyQt6.QtCore import QElapsedTimer, QRect, QTimer, Qt
-from PyQt6.QtGui import QAction, QColor, QKeySequence, QPainter, QPen
+
+from PyQt6.QtCore import QRect, QTimer, Qt
+from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QShortcut
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -71,19 +76,21 @@ class SceneWidget(QWidget):
 
 
 class MainWindow(QMainWindow):
+    PRESETS: dict[str, tuple[int, int]] = {
+        "Pomodoro 25/5": (25, 5),
+        "Deep 50/10": (50, 10),
+        "TEST 1:00/0:30": (1, 1),
+        "Custom": (25, 5),
+    }
+
     def __init__(self, storage: Storage, app_state: AppState) -> None:
         super().__init__()
         self.setWindowTitle("Focus Scenes")
-        self.resize(1100, 700)
+        self.resize(1200, 740)
         self.storage = storage
         self.app_state = app_state
         self.timer = FocusTimer()
-        self.session_duration = 25 * 60
         self.failed_animation = False
-
-        self.elapsed = QElapsedTimer()
-        self.elapsed.start()
-        self.last_ms = self.elapsed.elapsed()
 
         self.scenes: dict[str, BaseScene] = {
             "Forest": ForestScene(),
@@ -94,10 +101,12 @@ class MainWindow(QMainWindow):
         self.ui_to_theme = {v: k for k, v in self.theme_to_ui.items()}
 
         self._build_ui()
+        self._load_timer_settings()
         self._connect_signals()
         self._sync_theme_from_state()
+
         self.frame_timer = QTimer(self)
-        self.frame_timer.setInterval(33)
+        self.frame_timer.setInterval(250)
         self.frame_timer.timeout.connect(self._on_frame)
         self.frame_timer.start()
 
@@ -114,32 +123,42 @@ class MainWindow(QMainWindow):
         split.addWidget(left)
         split.addWidget(right)
         split.setStretchFactor(0, 3)
-        split.setStretchFactor(1, 1)
+        split.setStretchFactor(1, 2)
 
         root_layout = QHBoxLayout(central)
         root_layout.addWidget(split)
 
         left_layout = QVBoxLayout(left)
-        top_bar = QHBoxLayout()
+        top_grid = QGridLayout()
+
         self.preset_combo = QComboBox()
-        self.preset_combo.addItems(["Pomodoro 25/5", "Deep 50/10", "Custom"])
-        self.custom_minutes = QSpinBox()
-        self.custom_minutes.setRange(1, 240)
-        self.custom_minutes.setValue(30)
-        self.custom_minutes.setEnabled(False)
+        self.preset_combo.addItems(list(self.PRESETS.keys()))
+
+        self.focus_minutes = QSpinBox()
+        self.focus_minutes.setRange(1, 240)
+        self.break_minutes = QSpinBox()
+        self.break_minutes.setRange(1, 120)
+        self.auto_cycle_checkbox = QCheckBox("Авто-цикл")
+
+        self.focus_plus_btn = QPushButton("+5 min")
+        self.focus_minus_btn = QPushButton("-5 min")
 
         self.scene_combo = QComboBox()
         self.scene_combo.addItems(list(self.scenes.keys()))
 
-        top_bar.addWidget(QLabel("Mode:"))
-        top_bar.addWidget(self.preset_combo)
-        top_bar.addWidget(QLabel("Custom min:"))
-        top_bar.addWidget(self.custom_minutes)
-        top_bar.addSpacing(20)
-        top_bar.addWidget(QLabel("Scene:"))
-        top_bar.addWidget(self.scene_combo)
-        top_bar.addStretch()
-        left_layout.addLayout(top_bar)
+        top_grid.addWidget(QLabel("Preset:"), 0, 0)
+        top_grid.addWidget(self.preset_combo, 0, 1)
+        top_grid.addWidget(self.auto_cycle_checkbox, 0, 2)
+        top_grid.addWidget(QLabel("Focus (min):"), 1, 0)
+        top_grid.addWidget(self.focus_minutes, 1, 1)
+        top_grid.addWidget(self.focus_plus_btn, 1, 2)
+        top_grid.addWidget(QLabel("Break (min):"), 2, 0)
+        top_grid.addWidget(self.break_minutes, 2, 1)
+        top_grid.addWidget(self.focus_minus_btn, 2, 2)
+        top_grid.addWidget(QLabel("Scene:"), 3, 0)
+        top_grid.addWidget(self.scene_combo, 3, 1)
+
+        left_layout.addLayout(top_grid)
 
         self.scene_widget = SceneWidget()
         left_layout.addWidget(self.scene_widget, 1)
@@ -162,9 +181,11 @@ class MainWindow(QMainWindow):
         self.coins_label = QLabel("0")
         self.today_success_label = QLabel("0")
         self.streak_label = QLabel("0")
+        self.cycles_label = QLabel("0")
         stats_form.addRow("Coins:", self.coins_label)
         stats_form.addRow("Success today:", self.today_success_label)
         stats_form.addRow("Current streak:", self.streak_label)
+        stats_form.addRow("Completed cycles:", self.cycles_label)
 
         self.history_list = QListWidget()
         right_layout.addWidget(QLabel("Statistics"))
@@ -172,21 +193,39 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(QLabel("Recent sessions"))
         right_layout.addWidget(self.history_list, 1)
 
-        space_action = QAction(self)
-        space_action.setShortcut(QKeySequence(Qt.Key.Key_Space))
-        space_action.triggered.connect(self._space_toggle)
-        self.addAction(space_action)
+        QShortcut(QKeySequence("Space"), self, activated=self._space_toggle)
+        QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.start_session)
 
     def _connect_signals(self) -> None:
         self.start_btn.clicked.connect(self.start_session)
         self.pause_btn.clicked.connect(self.pause_session)
         self.resume_btn.clicked.connect(self.resume_session)
         self.stop_btn.clicked.connect(self.stop_session)
+
         self.preset_combo.currentTextChanged.connect(self._apply_preset)
-        self.custom_minutes.valueChanged.connect(self._apply_preset)
+        self.focus_minutes.valueChanged.connect(self._on_manual_duration_changed)
+        self.break_minutes.valueChanged.connect(self._on_manual_duration_changed)
+        self.auto_cycle_checkbox.toggled.connect(self._save_timer_settings)
+        self.focus_plus_btn.clicked.connect(lambda: self._adjust_focus_minutes(5))
+        self.focus_minus_btn.clicked.connect(lambda: self._adjust_focus_minutes(-5))
+
         self.scene_combo.currentTextChanged.connect(self._on_scene_changed)
         self.app_state.theme_changed.connect(self._sync_theme_from_state)
         self.app_state.coins_changed.connect(lambda _coins: self.refresh_stats())
+
+    def _load_timer_settings(self) -> None:
+        settings = self.app_state.settings
+        self.preset_combo.setCurrentText(str(settings.get("preset", "Pomodoro 25/5")))
+        self.focus_minutes.setValue(int(settings.get("focus_minutes", 25)))
+        self.break_minutes.setValue(int(settings.get("break_minutes", 5)))
+        self.auto_cycle_checkbox.setChecked(bool(settings.get("auto_cycle", False)))
+        self._apply_preset()
+
+    def _save_timer_settings(self) -> None:
+        self.app_state.save_setting("preset", self.preset_combo.currentText())
+        self.app_state.save_setting("focus_minutes", self.focus_minutes.value())
+        self.app_state.save_setting("break_minutes", self.break_minutes.value())
+        self.app_state.save_setting("auto_cycle", self.auto_cycle_checkbox.isChecked())
 
     def _sync_theme_from_state(self, *_args) -> None:
         ui_theme = self.theme_to_ui.get(self.app_state.selected_theme, "Forest")
@@ -195,13 +234,43 @@ class MainWindow(QMainWindow):
 
     def _apply_preset(self, *_args) -> None:
         text = self.preset_combo.currentText()
-        self.custom_minutes.setEnabled(text == "Custom")
-        if text.startswith("Pomodoro"):
-            self.session_duration = 25 * 60
-        elif text.startswith("Deep"):
-            self.session_duration = 50 * 60
+        focus_min, break_min = self.PRESETS.get(text, (25, 5))
+
+        custom = text == "Custom"
+        self.focus_minutes.setEnabled(custom)
+        self.break_minutes.setEnabled(custom)
+        self.focus_plus_btn.setEnabled(custom)
+        self.focus_minus_btn.setEnabled(custom)
+
+        if text == "TEST 1:00/0:30":
+            # 1 minute focus and 30 sec break for quick verification.
+            self.timer.configure(focus_seconds=60, break_seconds=30, auto_cycle=self.auto_cycle_checkbox.isChecked())
+        elif not custom:
+            self.focus_minutes.blockSignals(True)
+            self.break_minutes.blockSignals(True)
+            self.focus_minutes.setValue(focus_min)
+            self.break_minutes.setValue(break_min)
+            self.focus_minutes.blockSignals(False)
+            self.break_minutes.blockSignals(False)
+            self.timer.configure(
+                focus_seconds=focus_min * 60,
+                break_seconds=break_min * 60,
+                auto_cycle=self.auto_cycle_checkbox.isChecked(),
+            )
         else:
-            self.session_duration = self.custom_minutes.value() * 60
+            self._on_manual_duration_changed()
+        self._save_timer_settings()
+
+    def _on_manual_duration_changed(self) -> None:
+        self.timer.configure(
+            focus_seconds=self.focus_minutes.value() * 60,
+            break_seconds=self.break_minutes.value() * 60,
+            auto_cycle=self.auto_cycle_checkbox.isChecked(),
+        )
+        self._save_timer_settings()
+
+    def _adjust_focus_minutes(self, delta: int) -> None:
+        self.focus_minutes.setValue(max(1, self.focus_minutes.value() + delta))
 
     def _on_scene_changed(self) -> None:
         ui_theme = self.scene_combo.currentText()
@@ -209,60 +278,55 @@ class MainWindow(QMainWindow):
         self.app_state.set_theme(self.ui_to_theme.get(ui_theme, "forest"))
 
     def _space_toggle(self) -> None:
-        if self.timer.state == TimerState.IDLE:
-            self.start_session()
-        elif self.timer.state == TimerState.RUNNING:
+        if self.timer.state in {TimerState.FOCUS_RUNNING, TimerState.BREAK_RUNNING}:
             self.pause_session()
-        elif self.timer.state == TimerState.PAUSED:
+        elif self.timer.state in {TimerState.FOCUS_PAUSED, TimerState.BREAK_PAUSED}:
             self.resume_session()
 
     def start_session(self) -> None:
-        self._apply_preset()
-        try:
-            self.timer.start(self.session_duration)
-        except RuntimeError:
-            QMessageBox.information(self, "Timer", "Session is already running")
+        if self.timer.state not in {TimerState.IDLE, TimerState.FINISHED, TimerState.FAILED}:
             return
-
-        self.app_state.start_session(self.session_duration, self.ui_to_theme.get(self.scene_combo.currentText(), "forest"))
-
+        self._apply_preset()
+        self.timer.start()
+        self.app_state.start_session(self.timer.focus_duration_sec, self.ui_to_theme.get(self.scene_combo.currentText(), "forest"))
         self.failed_animation = False
         self._update_buttons()
 
     def pause_session(self) -> None:
-        try:
-            self.timer.pause()
-            self._update_buttons()
-        except RuntimeError:
-            return
+        self.timer.pause()
+        self._update_buttons()
 
     def resume_session(self) -> None:
-        try:
-            self.timer.resume()
-            self._update_buttons()
-        except RuntimeError:
-            return
+        self.timer.resume()
+        self._update_buttons()
 
     def stop_session(self) -> None:
-        try:
-            success = self.timer.stop()
-        except RuntimeError:
+        state_before_stop = self.timer.state
+        success_stop = self.timer.stop()
+
+        if state_before_stop in {TimerState.FOCUS_RUNNING, TimerState.FOCUS_PAUSED}:
+            snapshot = self.timer.snapshot()
+            self.app_state.finish_session(success=False, coins_earned=0, duration_sec=snapshot.elapsed_seconds)
+            self.failed_animation = True
+            QMessageBox.warning(self, "Session failed", "Session stopped early and was not counted.")
+            self.refresh_stats()
+            self._reset_after_finish()
             return
 
-        snapshot = self.timer.snapshot()
+        if state_before_stop in {TimerState.BREAK_RUNNING, TimerState.BREAK_PAUSED}:
+            self._reset_after_finish()
+            return
 
-        coins_earned = max(1, snapshot.total_seconds // 300) if success else 0
-        self.app_state.finish_session(success=success, coins_earned=coins_earned)
+        if success_stop:
+            self._reset_after_finish()
 
-        if success:
-            QMessageBox.information(self, "Session completed", f"Great job! +{coins_earned} coins")
-        else:
-            self.failed_animation = True
-
-            QMessageBox.warning(self, "Session failed", "Session stopped early and was not counted.")
-
+    def _handle_focus_success(self, elapsed_seconds: int) -> None:
+        coins_earned = max(1, self.timer.focus_duration_sec // 300)
+        self.app_state.finish_session(success=True, coins_earned=coins_earned, duration_sec=elapsed_seconds)
         self.refresh_stats()
-        QTimer.singleShot(900, self._reset_after_finish)
+        if not self.auto_cycle_checkbox.isChecked():
+            QMessageBox.information(self, "Session completed", f"Great job! +{coins_earned} coins")
+            self._reset_after_finish()
 
     def _reset_after_finish(self) -> None:
         self.timer.reset()
@@ -270,36 +334,36 @@ class MainWindow(QMainWindow):
         self._update_buttons()
 
     def _on_frame(self) -> None:
-        now_ms = self.elapsed.elapsed()
-        dt = max(0.0, (now_ms - self.last_ms) / 1000.0)
-        self.last_ms = now_ms
+        now = time.monotonic()
+        prev_state = self.timer.state
+        snapshot = self.timer.tick(now)
 
-        snapshot = self.timer.tick(dt)
-        if snapshot.state == TimerState.COMPLETED:
-            self.stop_session()
-            return
+        if prev_state == TimerState.FOCUS_RUNNING and snapshot.state in {TimerState.BREAK_RUNNING, TimerState.FINISHED}:
+            self._handle_focus_success(self.timer.focus_duration_sec)
+            if snapshot.state == TimerState.FINISHED:
+                return
+            snapshot = self.timer.snapshot(now)
+
+        self.app_state.update_session_state(snapshot.state.value, snapshot.progress)
+        self.cycles_label.setText(str(self.timer.completed_focus_sessions))
 
         remaining_text = f"{snapshot.remaining_seconds // 60:02d}:{snapshot.remaining_seconds % 60:02d}"
-        self.scene_widget.set_state(snapshot.progress, self.failed_animation, now_ms / 1000.0, remaining_text)
+        self.scene_widget.set_state(snapshot.progress, self.failed_animation, now, remaining_text)
+        self._update_buttons()
 
     def _update_buttons(self) -> None:
         state = self.timer.state
-        self.start_btn.setEnabled(state in {TimerState.IDLE, TimerState.FAILED, TimerState.COMPLETED})
-        self.pause_btn.setEnabled(state == TimerState.RUNNING)
-        self.resume_btn.setEnabled(state == TimerState.PAUSED)
-        self.stop_btn.setEnabled(state in {TimerState.RUNNING, TimerState.PAUSED})
-
+        self.start_btn.setEnabled(state in {TimerState.IDLE, TimerState.FAILED, TimerState.FINISHED})
+        self.pause_btn.setEnabled(state in {TimerState.FOCUS_RUNNING, TimerState.BREAK_RUNNING})
+        self.resume_btn.setEnabled(state in {TimerState.FOCUS_PAUSED, TimerState.BREAK_PAUSED})
+        self.stop_btn.setEnabled(state in {TimerState.FOCUS_RUNNING, TimerState.FOCUS_PAUSED, TimerState.BREAK_RUNNING, TimerState.BREAK_PAUSED})
 
     def _success_today(self, rows: list[SessionRow]) -> int:
         today = date.today().isoformat()
         return sum(1 for r in rows if r.success and r.started_at.startswith(today))
 
     def _streak_days(self, rows: list[SessionRow]) -> int:
-        success_days = {
-            datetime.fromisoformat(r.started_at).date()
-            for r in rows
-            if r.success
-        }
+        success_days = {datetime.fromisoformat(r.started_at).date() for r in rows if r.success}
         cursor = date.today()
         streak = 0
         while cursor in success_days:
@@ -308,30 +372,34 @@ class MainWindow(QMainWindow):
         return streak
 
     def refresh_stats(self) -> None:
-        rows = self.storage.list_sessions(limit=100)
+        rows = self.storage.list_sessions(limit=50)
         self.coins_label.setText(str(self.app_state.coins_balance))
         self.today_success_label.setText(str(self._success_today(rows)))
         self.streak_label.setText(str(self._streak_days(rows)))
         self.history_list.clear()
         for row in rows:
             status = "✅" if row.success else "❌"
-            minutes = row.duration_sec // 60
-            item_text = f"{status} {row.started_at} · {minutes}m · {row.theme} · +{row.coins_earned}"
-
+            duration_text = f"{row.duration_sec // 60:02d}:{row.duration_sec % 60:02d}"
+            item_text = f"{status} {row.started_at} · {duration_text} · {row.theme}"
             QListWidgetItem(item_text, self.history_list)
 
     def closeEvent(self, event) -> None:  # noqa: N802
-        if self.timer.is_active:
-            answer = QMessageBox.question(
-                self,
-                "Exit",
-                "A focus session is active. Exit and mark it as failed?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if answer == QMessageBox.StandardButton.Yes:
-                self.stop_session()
-                event.accept()
-            else:
-                event.ignore()
+        if not self.timer.is_active:
+            event.accept()
             return
+
+        answer = QMessageBox.question(
+            self,
+            "Exit",
+            "Сессия активна. Закрыть приложение? (это прервет сессию)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            event.ignore()
+            return
+
+        if self.timer.state in {TimerState.FOCUS_RUNNING, TimerState.FOCUS_PAUSED}:
+            self.stop_session()
+        else:
+            self.timer.stop()
         event.accept()
