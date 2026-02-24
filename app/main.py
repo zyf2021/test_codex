@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QApplication
 
 from app.core.app_state import AppState
 from app.data.storage import Storage
+from app.ui.main_window import MainWindow
 
 
 
