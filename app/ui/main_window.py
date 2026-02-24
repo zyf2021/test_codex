@@ -46,6 +46,12 @@ class SceneWidget(QWidget):
         self._scene = scene
         self.update()
 
+    def set_timer_state(self, state: TimerState) -> None:
+        self._scene.on_timer_state_changed(state)
+
+    def advance_animation_frame(self, state: TimerState) -> bool:
+        return self._scene.advance_animation_frame(state)
+
     def set_state(self, progress: float, failed: bool, time_s: float, remaining_text: str) -> None:
         self._progress = progress
         self._failed = failed
@@ -110,6 +116,17 @@ class MainWindow(QMainWindow):
         self.frame_timer.timeout.connect(self._on_frame)
         self.frame_timer.start()
 
+        self.repaint_timer = QTimer(self)
+        self.repaint_timer.setInterval(33)
+        self.repaint_timer.timeout.connect(self.scene_widget.update)
+        self.repaint_timer.start()
+
+        self.scene_animation_timer = QTimer(self)
+        self.scene_animation_timer.setInterval(100)
+        self.scene_animation_timer.timeout.connect(self._on_scene_animation_frame)
+        self.scene_animation_timer.start()
+
+        self.scene_widget.set_timer_state(self.timer.state)
         self.refresh_stats()
         self._update_buttons()
 
@@ -231,6 +248,7 @@ class MainWindow(QMainWindow):
         ui_theme = self.theme_to_ui.get(self.app_state.selected_theme, "Forest")
         self.scene_combo.setCurrentText(ui_theme)
         self.scene_widget.set_scene(self.scenes[ui_theme])
+        self.scene_widget.set_timer_state(self.timer.state)
 
     def _apply_preset(self, *_args) -> None:
         text = self.preset_combo.currentText()
@@ -275,6 +293,7 @@ class MainWindow(QMainWindow):
     def _on_scene_changed(self) -> None:
         ui_theme = self.scene_combo.currentText()
         self.scene_widget.set_scene(self.scenes[ui_theme])
+        self.scene_widget.set_timer_state(self.timer.state)
         self.app_state.set_theme(self.ui_to_theme.get(ui_theme, "forest"))
 
     def _space_toggle(self) -> None:
@@ -290,14 +309,17 @@ class MainWindow(QMainWindow):
         self.timer.start()
         self.app_state.start_session(self.timer.focus_duration_sec, self.ui_to_theme.get(self.scene_combo.currentText(), "forest"))
         self.failed_animation = False
+        self.scene_widget.set_timer_state(self.timer.state)
         self._update_buttons()
 
     def pause_session(self) -> None:
         self.timer.pause()
+        self.scene_widget.set_timer_state(self.timer.state)
         self._update_buttons()
 
     def resume_session(self) -> None:
         self.timer.resume()
+        self.scene_widget.set_timer_state(self.timer.state)
         self._update_buttons()
 
     def stop_session(self) -> None:
@@ -331,6 +353,7 @@ class MainWindow(QMainWindow):
     def _reset_after_finish(self) -> None:
         self.timer.reset()
         self.failed_animation = False
+        self.scene_widget.set_timer_state(self.timer.state)
         self._update_buttons()
 
     def _on_frame(self) -> None:
@@ -345,11 +368,17 @@ class MainWindow(QMainWindow):
             snapshot = self.timer.snapshot(now)
 
         self.app_state.update_session_state(snapshot.state.value, snapshot.progress)
+        self.scene_widget.set_timer_state(snapshot.state)
         self.cycles_label.setText(str(self.timer.completed_focus_sessions))
 
         remaining_text = f"{snapshot.remaining_seconds // 60:02d}:{snapshot.remaining_seconds % 60:02d}"
         self.scene_widget.set_state(snapshot.progress, self.failed_animation, now, remaining_text)
         self._update_buttons()
+
+
+    def _on_scene_animation_frame(self) -> None:
+        if self.scene_widget.advance_animation_frame(self.timer.state):
+            self.scene_widget.update()
 
     def _update_buttons(self) -> None:
         state = self.timer.state
