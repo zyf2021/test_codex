@@ -24,6 +24,7 @@
 
 ## Запуск
 
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -31,11 +32,13 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
+
 ## Тесты
 
 ```bash
 pytest -q
 ```
+
 
 ## Сборка в EXE (PyInstaller)
 
@@ -47,3 +50,4 @@ pyinstaller --noconfirm --onefile --name FocusScenes app/main.py
 Результат:
 - Windows: `dist/FocusScenes.exe`
 - Linux/macOS: `dist/FocusScenes`
+

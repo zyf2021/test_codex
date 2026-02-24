@@ -11,7 +11,6 @@ from app.scenes.base import BaseScene
 
 class IceScene(BaseScene):
     name = "Ice"
-
     def __init__(self) -> None:
         self._pixmap = load_pixmap("scenes/ice.png")
 
@@ -19,6 +18,7 @@ class IceScene(BaseScene):
         if self._pixmap is not None:
             painter.drawPixmap(rect.toRect(), self._pixmap)
             return
+
 
         painter.fillRect(rect, QColor("#e1f5fe"))
         water_top = rect.bottom() - rect.height() * 0.28

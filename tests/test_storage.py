@@ -39,3 +39,4 @@ def test_task_add_and_toggle(tmp_path) -> None:
 
     all_tasks = storage.list_tasks(include_done=True)
     assert all_tasks[0].is_done is True
+

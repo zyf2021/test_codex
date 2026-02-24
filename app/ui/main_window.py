@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from datetime import date, datetime, timedelta
-
 from PyQt6.QtCore import QElapsedTimer, QRect, QTimer, Qt
 from PyQt6.QtGui import QAction, QColor, QKeySequence, QPainter, QPen
 from PyQt6.QtWidgets import (
@@ -57,7 +55,9 @@ class SceneWidget(QWidget):
         self._scene.render(painter, rect, self._progress, self._failed, self._time_s)
 
         diameter = int(min(rect.width(), rect.height()) * 0.35)
-        circle_rect = QRect(rect.left() + 16, rect.top() + 16, diameter, diameter)
+        x = rect.left() + 16
+        y = rect.top() + 16
+        circle_rect = QRect(x, y, diameter, diameter)
 
         painter.setPen(QPen(QColor(255, 255, 255, 180), 8))
         painter.drawEllipse(circle_rect)
@@ -66,6 +66,7 @@ class SceneWidget(QWidget):
         painter.drawArc(circle_rect, 90 * 16, span)
 
         painter.setPen(QColor("#263238"))
+        painter.setFont(self.font())
         painter.drawText(circle_rect, Qt.AlignmentFlag.AlignCenter, self._remaining_text)
 
 
@@ -74,7 +75,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Focus Scenes")
         self.resize(1100, 700)
-
         self.storage = storage
         self.app_state = app_state
         self.timer = FocusTimer()
@@ -96,7 +96,6 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._connect_signals()
         self._sync_theme_from_state()
-
         self.frame_timer = QTimer(self)
         self.frame_timer.setInterval(33)
         self.frame_timer.timeout.connect(self._on_frame)
@@ -224,7 +223,9 @@ class MainWindow(QMainWindow):
         except RuntimeError:
             QMessageBox.information(self, "Timer", "Session is already running")
             return
+
         self.app_state.start_session(self.session_duration, self.ui_to_theme.get(self.scene_combo.currentText(), "forest"))
+
         self.failed_animation = False
         self._update_buttons()
 
@@ -249,6 +250,7 @@ class MainWindow(QMainWindow):
             return
 
         snapshot = self.timer.snapshot()
+
         coins_earned = max(1, snapshot.total_seconds // 300) if success else 0
         self.app_state.finish_session(success=success, coins_earned=coins_earned)
 
@@ -256,6 +258,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Session completed", f"Great job! +{coins_earned} coins")
         else:
             self.failed_animation = True
+
             QMessageBox.warning(self, "Session failed", "Session stopped early and was not counted.")
 
         self.refresh_stats()
@@ -286,6 +289,7 @@ class MainWindow(QMainWindow):
         self.resume_btn.setEnabled(state == TimerState.PAUSED)
         self.stop_btn.setEnabled(state in {TimerState.RUNNING, TimerState.PAUSED})
 
+
     def _success_today(self, rows: list[SessionRow]) -> int:
         today = date.today().isoformat()
         return sum(1 for r in rows if r.success and r.started_at.startswith(today))
@@ -313,6 +317,7 @@ class MainWindow(QMainWindow):
             status = "✅" if row.success else "❌"
             minutes = row.duration_sec // 60
             item_text = f"{status} {row.started_at} · {minutes}m · {row.theme} · +{row.coins_earned}"
+
             QListWidgetItem(item_text, self.history_list)
 
     def closeEvent(self, event) -> None:  # noqa: N802

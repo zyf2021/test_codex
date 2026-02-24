@@ -4,14 +4,13 @@ from math import sin
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPolygonF
-
 from app.core.assets import load_pixmap
+
 from app.scenes.base import BaseScene
 
 
 class FlightScene(BaseScene):
     name = "Flight"
-
     def __init__(self) -> None:
         self._pixmap = load_pixmap("scenes/flight.png")
 
@@ -19,6 +18,7 @@ class FlightScene(BaseScene):
         if self._pixmap is not None:
             painter.drawPixmap(rect.toRect(), self._pixmap)
             return
+
 
         painter.fillRect(rect, QColor("#b3e5fc"))
 

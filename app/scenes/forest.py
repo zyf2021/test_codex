@@ -4,13 +4,13 @@ from math import sin
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
-
 from app.core.assets import load_pixmap
 from app.scenes.base import BaseScene
 
 
 class ForestScene(BaseScene):
     name = "Forest"
+
 
     def __init__(self) -> None:
         self._pixmap = load_pixmap("scenes/forest.png")
