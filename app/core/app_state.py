@@ -40,6 +40,8 @@ class SessionState:
     started_at: str
     duration_sec: int
     theme: str
+    state: str = "idle"
+    progress: float = 0.0
 
 
 class AppState(QObject):
@@ -96,16 +98,25 @@ class AppState(QObject):
             started_at=datetime.now().isoformat(timespec="seconds"),
             duration_sec=duration_sec,
             theme=self._normalize_theme(theme),
+            state="focus_running",
+            progress=0.0,
         )
         self.state_changed.emit()
 
-    def finish_session(self, success: bool, coins_earned: int) -> None:
+    def update_session_state(self, state: str, progress: float) -> None:
+        if not self.current_session:
+            return
+        self.current_session.state = state
+        self.current_session.progress = max(0.0, min(1.0, progress))
+        self.state_changed.emit()
+
+    def finish_session(self, success: bool, coins_earned: int, duration_sec: int | None = None) -> None:
         if not self.current_session:
             return
         if self._storage:
             self._storage.insert_session(
                 started_at=self.current_session.started_at,
-                duration_sec=self.current_session.duration_sec,
+                duration_sec=duration_sec if duration_sec is not None else self.current_session.duration_sec,
                 theme=self.current_session.theme,
                 success=success,
                 coins_earned=coins_earned if success else 0,
