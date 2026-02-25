@@ -1,4 +1,4 @@
-from app.data.storage import Storage
+from app.data.storage import MAX_TASKS, Storage
 
 
 def test_init_db_creates_tables(tmp_path) -> None:
@@ -26,17 +26,41 @@ def test_insert_and_list_sessions(tmp_path) -> None:
     assert rows[0].coins_earned == 5
 
 
-def test_task_add_and_toggle(tmp_path) -> None:
+def test_create_task_limit_5(tmp_path) -> None:
     storage = Storage(tmp_path / "app.db")
     storage.init_db()
-    task_id = storage.upsert_task("Write report")
-    active = storage.list_tasks()
-    assert len(active) == 1 and active[0].id == task_id
 
-    storage.toggle_task(task_id, True)
-    active_after = storage.list_tasks()
-    assert active_after == []
+    for i in range(MAX_TASKS):
+        storage.create_task(f"Task {i}")
 
-    all_tasks = storage.list_tasks(include_done=True)
-    assert all_tasks[0].is_done is True
+    assert len(storage.list_tasks(limit=MAX_TASKS, include_done=True)) == MAX_TASKS
 
+    try:
+        storage.create_task("Task overflow")
+        assert False, "Expected ValueError when adding more than 5 tasks"
+    except ValueError:
+        pass
+
+
+def test_reorder_tasks_persists_order(tmp_path) -> None:
+    storage = Storage(tmp_path / "app.db")
+    storage.init_db()
+    ids = [storage.create_task(f"Task {i}") for i in range(3)]
+
+    storage.reorder_tasks([ids[2], ids[0], ids[1]])
+
+    rows = storage.list_tasks(limit=MAX_TASKS, include_done=True)
+    assert [row.id for row in rows] == [ids[2], ids[0], ids[1]]
+
+
+def test_toggle_done_and_delete(tmp_path) -> None:
+    storage = Storage(tmp_path / "app.db")
+    storage.init_db()
+    task_id = storage.create_task("Write report")
+
+    storage.set_task_done(task_id, True)
+    rows = storage.list_tasks(limit=MAX_TASKS, include_done=True)
+    assert rows[0].is_done is True
+
+    storage.delete_task(task_id)
+    assert storage.list_tasks(limit=MAX_TASKS, include_done=True) == []

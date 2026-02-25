@@ -14,18 +14,21 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from app.core.app_state import AppState
 from app.core.timer import FocusTimer, TimerState
-from app.data.storage import SessionRow, Storage
+from app.data.storage import MAX_TASKS, SessionRow, Storage, TaskRow
 from app.scenes.base import BaseScene
 from app.scenes.flight import FlightScene
 from app.scenes.forest import ForestScene
@@ -128,6 +131,7 @@ class MainWindow(QMainWindow):
 
         self.scene_widget.set_timer_state(self.timer.state)
         self.refresh_stats()
+        self._refresh_tasks_panel()
         self._update_buttons()
 
     def _build_ui(self) -> None:
@@ -143,7 +147,7 @@ class MainWindow(QMainWindow):
         split.setStretchFactor(1, 2)
 
         root_layout = QHBoxLayout(central)
-        root_layout.addWidget(split)
+        root_layout.addWidget(split, 1)
 
         left_layout = QVBoxLayout(left)
         top_grid = QGridLayout()
@@ -207,6 +211,31 @@ class MainWindow(QMainWindow):
         self.history_list = QListWidget()
         right_layout.addWidget(QLabel("Statistics"))
         right_layout.addWidget(stats_box)
+
+        self.tasks_panel = QWidget()
+        self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        tasks_layout = QVBoxLayout(self.tasks_panel)
+        tasks_layout.setContentsMargins(0, 0, 0, 0)
+        self.tasks_title = QLabel(f"Задачи (0/{MAX_TASKS})")
+        tasks_layout.addWidget(self.tasks_title)
+
+        input_row = QHBoxLayout()
+        self.task_input = QLineEdit()
+        self.task_input.setPlaceholderText("Добавить задачу…")
+        self.add_task_btn = QPushButton("+")
+        self.add_task_btn.setFixedWidth(36)
+        input_row.addWidget(self.task_input, 1)
+        input_row.addWidget(self.add_task_btn)
+        tasks_layout.addLayout(input_row)
+
+        self.max_tasks_label = QLabel("Максимум 5 задач")
+        self.max_tasks_label.setVisible(False)
+        tasks_layout.addWidget(self.max_tasks_label)
+
+        self.tasks_list = QListWidget()
+        tasks_layout.addWidget(self.tasks_list, 1)
+
+        right_layout.addWidget(self.tasks_panel, 1)
         right_layout.addWidget(QLabel("Recent sessions"))
         right_layout.addWidget(self.history_list, 1)
 
@@ -229,6 +258,69 @@ class MainWindow(QMainWindow):
         self.scene_combo.currentTextChanged.connect(self._on_scene_changed)
         self.app_state.theme_changed.connect(self._sync_theme_from_state)
         self.app_state.coins_changed.connect(lambda _coins: self.refresh_stats())
+        self.app_state.tasks_changed.connect(self._refresh_tasks_panel)
+
+        self.add_task_btn.clicked.connect(self._on_add_task)
+        self.task_input.returnPressed.connect(self._on_add_task)
+
+    def _refresh_tasks_panel(self) -> None:
+        self.tasks_list.clear()
+        tasks = self.app_state.tasks
+        for index, task in enumerate(tasks):
+            item = QListWidgetItem(self.tasks_list)
+            row_widget = self._build_task_row(task, index, len(tasks))
+            item.setSizeHint(row_widget.sizeHint())
+            self.tasks_list.addItem(item)
+            self.tasks_list.setItemWidget(item, row_widget)
+
+        done_count = sum(1 for task in tasks if task.is_done)
+        self.tasks_title.setText(f"Задачи ({done_count}/{MAX_TASKS})")
+        limit_reached = len(tasks) >= MAX_TASKS
+        self.add_task_btn.setEnabled(not limit_reached)
+        self.task_input.setToolTip("Максимум 5 задач" if limit_reached else "")
+        self.max_tasks_label.setVisible(limit_reached)
+
+    def _build_task_row(self, task: TaskRow, index: int, total: int) -> QWidget:
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(4, 2, 4, 2)
+
+        done_checkbox = QCheckBox()
+        done_checkbox.setChecked(task.is_done)
+        done_checkbox.toggled.connect(lambda checked, task_id=task.id: self.app_state.toggle_task_done(task_id, checked))
+
+        title = QLabel(task.title)
+        title.setWordWrap(True)
+
+        up_btn = QToolButton()
+        up_btn.setText("↑")
+        up_btn.setEnabled(index > 0)
+        up_btn.clicked.connect(lambda _checked=False, task_id=task.id: self.app_state.move_task_up(task_id))
+
+        down_btn = QToolButton()
+        down_btn.setText("↓")
+        down_btn.setEnabled(index < total - 1)
+        down_btn.clicked.connect(lambda _checked=False, task_id=task.id: self.app_state.move_task_down(task_id))
+
+        delete_btn = QToolButton()
+        delete_btn.setText("×")
+        delete_btn.clicked.connect(lambda _checked=False, task_id=task.id: self.app_state.remove_task(task_id))
+
+        layout.addWidget(done_checkbox)
+        layout.addWidget(title, 1)
+        layout.addWidget(up_btn)
+        layout.addWidget(down_btn)
+        layout.addWidget(delete_btn)
+        return row
+
+    def _on_add_task(self) -> None:
+        if len(self.app_state.tasks) >= MAX_TASKS:
+            self.max_tasks_label.setVisible(True)
+            self.task_input.setFocus()
+            return
+        if self.app_state.add_task(self.task_input.text()):
+            self.task_input.clear()
+        self.task_input.setFocus()
 
     def _load_timer_settings(self) -> None:
         settings = self.app_state.settings
