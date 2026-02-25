@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Сцена Flight: полет самолета и анимация пропеллера."""
+
 from math import sin
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -11,6 +13,7 @@ from app.scenes.base import BaseScene
 
 
 class FlightScene(BaseScene):
+    """Визуализация авиа-темы; поддерживает покадровую анимацию."""
     name = "Flight"
 
     def __init__(self) -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Доменная логика таймера Pomodoro без привязки к UI."""
+
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -17,6 +19,7 @@ class TimerState(str, Enum):
 
 @dataclass(frozen=True)
 class TimerSnapshot:
+    """Иммутабельный снимок состояния таймера для UI-рендера."""
     total_seconds: int
     remaining_seconds: int
     elapsed_seconds: int
@@ -27,6 +30,7 @@ class TimerSnapshot:
 
 
 class FocusTimer:
+    """Состояние и переходы фокус/перерыв/пауза/завершение."""
     """Monotonic pomodoro engine detached from UI framework."""
 
     def __init__(self) -> None:
@@ -69,6 +73,7 @@ class FocusTimer:
         return self._auto_cycle
 
     def configure(self, focus_seconds: int, break_seconds: int, auto_cycle: bool) -> None:
+        """Применяет длительности фаз и флаг авто-цикла."""
         if focus_seconds <= 0 or break_seconds <= 0:
             raise ValueError("Durations must be positive")
         self._focus_duration_sec = focus_seconds
@@ -76,6 +81,7 @@ class FocusTimer:
         self._auto_cycle = auto_cycle
 
     def start(self, now: float | None = None) -> None:
+        """Запускает таймер с фазы фокуса."""
         if self._state in {
             TimerState.FOCUS_RUNNING,
             TimerState.FOCUS_PAUSED,
@@ -112,6 +118,7 @@ class FocusTimer:
             self._state = TimerState.BREAK_RUNNING
 
     def stop(self, now: float | None = None) -> bool:
+        """Останавливает таймер; `True` только для корректного завершения."""
         if now is None:
             now = time.monotonic()
         if self._state in {TimerState.FOCUS_RUNNING, TimerState.FOCUS_PAUSED}:
@@ -133,6 +140,7 @@ class FocusTimer:
         self._state = TimerState.IDLE
 
     def tick(self, now: float | None = None) -> TimerSnapshot:
+        """Продвигает состояние на текущий момент и возвращает снимок."""
         if now is None:
             now = time.monotonic()
 
