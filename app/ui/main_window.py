@@ -211,6 +211,31 @@ class MainWindow(QMainWindow):
         self.history_list = QListWidget()
         right_layout.addWidget(QLabel("Statistics"))
         right_layout.addWidget(stats_box)
+
+        self.tasks_panel = QWidget()
+        self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        tasks_layout = QVBoxLayout(self.tasks_panel)
+        tasks_layout.setContentsMargins(0, 0, 0, 0)
+        self.tasks_title = QLabel(f"Задачи (0/{MAX_TASKS})")
+        tasks_layout.addWidget(self.tasks_title)
+
+        input_row = QHBoxLayout()
+        self.task_input = QLineEdit()
+        self.task_input.setPlaceholderText("Добавить задачу…")
+        self.add_task_btn = QPushButton("+")
+        self.add_task_btn.setFixedWidth(36)
+        input_row.addWidget(self.task_input, 1)
+        input_row.addWidget(self.add_task_btn)
+        tasks_layout.addLayout(input_row)
+
+        self.max_tasks_label = QLabel("Максимум 5 задач")
+        self.max_tasks_label.setVisible(False)
+        tasks_layout.addWidget(self.max_tasks_label)
+
+        self.tasks_list = QListWidget()
+        tasks_layout.addWidget(self.tasks_list, 1)
+
+        right_layout.addWidget(self.tasks_panel, 1)
         right_layout.addWidget(QLabel("Recent sessions"))
         right_layout.addWidget(self.history_list, 1)
 
