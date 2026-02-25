@@ -140,9 +140,11 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         """Создает и композитит все визуальные блоки главного окна."""
+        # Корневой контейнер окна: в нем размещается вся остальная компоновка.
         central = QWidget(self)
         self.setCentralWidget(central)
 
+        # Основной горизонтальный split: слева — таймер/сцена, справа — статистика.
         split = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
         right = QWidget()
@@ -154,9 +156,11 @@ class MainWindow(QMainWindow):
         root_layout = QHBoxLayout(central)
         root_layout.addWidget(split, 1)
 
+        # Левая колонка: верхняя панель настроек, затем сцена, затем кнопки управления.
         left_layout = QVBoxLayout(left)
         top_grid = QGridLayout()
 
+        # Блок настроек сессии: пресет, длительность фокуса/перерыва и авто-цикл.
         self.preset_combo = QComboBox()
         self.preset_combo.addItems(list(self.PRESETS.keys()))
 
@@ -169,6 +173,7 @@ class MainWindow(QMainWindow):
         self.focus_plus_btn = QPushButton("+5 min")
         self.focus_minus_btn = QPushButton("-5 min")
 
+        # Выбор визуальной сцены (тематическое оформление анимации прогресса).
         self.scene_combo = QComboBox()
         self.scene_combo.addItems(list(self.scenes.keys()))
 
@@ -186,9 +191,11 @@ class MainWindow(QMainWindow):
 
         left_layout.addLayout(top_grid)
 
+        # Центральный визуальный блок: отрисовка текущей сцены и кругового прогресса.
         self.scene_widget = SceneWidget()
         left_layout.addWidget(self.scene_widget, 1)
 
+        # Нижняя полоса управления таймером: запуск/пауза/продолжение/остановка.
         controls = QHBoxLayout()
         self.start_btn = QPushButton("Start")
         self.pause_btn = QPushButton("Pause")
@@ -201,7 +208,9 @@ class MainWindow(QMainWindow):
         controls.addStretch()
         left_layout.addLayout(controls)
 
+        # Правая колонка split: агрегированная статистика + история последних сессий.
         right_layout = QVBoxLayout(right)
+        # Блок числовой статистики (coins, успехи за день, streak, циклы).
         stats_box = QWidget()
         stats_form = QFormLayout(stats_box)
         self.coins_label = QLabel("0")
@@ -213,10 +222,12 @@ class MainWindow(QMainWindow):
         stats_form.addRow("Current streak:", self.streak_label)
         stats_form.addRow("Completed cycles:", self.cycles_label)
 
+        # Список недавних сессий (дата, длительность, тема, статус).
         self.history_list = QListWidget()
         right_layout.addWidget(QLabel("Statistics"))
         right_layout.addWidget(stats_box)
 
+        # Внутренний блок задач внутри правой колонки (первое создание).
         self.tasks_panel = QWidget()
         self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         tasks_layout = QVBoxLayout(self.tasks_panel)
@@ -244,6 +255,8 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(QLabel("Recent sessions"))
         right_layout.addWidget(self.history_list, 1)
 
+        # Отдельная узкая боковая панель задач, закрепленная справа от split.
+        # Здесь повторно создаются элементы задач для самостоятельной панели.
         self.tasks_panel = QWidget()
         self.tasks_panel.setFixedWidth(290)
         self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
@@ -267,8 +280,10 @@ class MainWindow(QMainWindow):
         self.tasks_list = QListWidget()
         tasks_layout.addWidget(self.tasks_list, 1)
 
+        # Добавляем боковую панель задач в корневую горизонтальную компоновку окна.
         root_layout.addWidget(self.tasks_panel)
 
+        # Горячие клавиши: Space — пауза/продолжить, Ctrl+Enter — старт сессии.
         QShortcut(QKeySequence("Space"), self, activated=self._space_toggle)
         QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.start_session)
 
