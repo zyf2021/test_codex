@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Загрузка графических ресурсов (ассетов) с кэшированием в памяти."""
+
 from pathlib import Path
 
 from PyQt6.QtGui import QPixmap
@@ -10,14 +12,17 @@ _PIXMAP_CACHE: dict[str, QPixmap | None] = {}
 
 
 def get_asset_path(relative: str) -> Path:
+    """Преобразует относительный путь внутри `assets/` в абсолютный."""
     return ASSETS_DIR / relative
 
 
 def asset_exists(relative: str) -> bool:
+    """Проверяет, существует ли ассет на диске."""
     return get_asset_path(relative).exists()
 
 
 def load_pixmap(relative: str) -> QPixmap | None:
+    """Загружает `QPixmap` с кэшем; возвращает `None`, если файл невалиден."""
     if relative in _PIXMAP_CACHE:
         return _PIXMAP_CACHE[relative]
 
@@ -36,6 +41,7 @@ def load_pixmap(relative: str) -> QPixmap | None:
 
 
 def load_pixmap_sequence(relatives: list[str]) -> list[QPixmap]:
+    """Загружает последовательность кадров; при ошибке возвращает пустой список."""
     pixmaps: list[QPixmap] = []
     for relative in relatives:
         pixmap = load_pixmap(relative)

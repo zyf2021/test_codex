@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""SQLite-слой хранения с CRUD-операциями сессий, задач и настроек."""
+
 import json
 import sqlite3
 from contextlib import contextmanager
@@ -42,6 +44,7 @@ class InventoryRow:
 
 
 class Storage:
+    """Инкапсулирует подключение к SQLite и транзакционные операции."""
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,6 +72,7 @@ class Storage:
             conn.close()
 
     def init_db(self) -> None:
+        """Создает все таблицы приложения при первом запуске."""
         with self._transaction() as conn:
             conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
             row = conn.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
@@ -173,6 +177,7 @@ class Storage:
             return int(cursor.lastrowid)
 
     def list_sessions(self, limit: int = 100) -> list[SessionRow]:
+        """Возвращает последние сессии в обратном хронологическом порядке."""
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT id, started_at, duration_sec, theme, success, coins_earned FROM sessions ORDER BY id DESC LIMIT ?",
@@ -191,6 +196,7 @@ class Storage:
         ]
 
     def list_tasks(self, limit: int = MAX_TASKS, include_done: bool = True) -> list[TaskRow]:
+        """Возвращает задачи с сортировкой по ручному порядку."""
         query = "SELECT id, title, is_done, sort_order, created_at FROM tasks"
         params: tuple[Any, ...]
         if include_done:

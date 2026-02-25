@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Базовый контракт для визуальных сцен таймера."""
+
 from abc import ABC, abstractmethod
 
 from PyQt6.QtCore import QRectF
@@ -9,6 +11,7 @@ from app.core.timer import TimerState
 
 
 class BaseScene(ABC):
+    """Интерфейс сцены: отрисовка и реакция на состояние таймера."""
     name: str
 
     @abstractmethod

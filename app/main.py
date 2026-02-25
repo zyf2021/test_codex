@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""Точка входа приложения Focus Scenes.
+
+Модуль отвечает за инициализацию Qt-приложения, подключение хранилища,
+загрузку состояния и запуск главного окна.
+"""
+
 import sys
 from pathlib import Path
 
@@ -13,11 +19,13 @@ from app.ui.main_window import MainWindow
 
 
 def default_db_path() -> Path:
+    """Возвращает стандартный путь к SQLite-файлу в текущей директории."""
     return Path.cwd() / "app.db"
 
 
 
 def main() -> int:
+    """Создает зависимости приложения и запускает главный UI-цикл."""
     app = QApplication(sys.argv)
 
     
