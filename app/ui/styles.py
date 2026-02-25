@@ -27,7 +27,7 @@ QToolTip {
 }
 
 QFrame#Panel, QFrame#Card, QFrame#SceneCard {
-    background: #fffaf6;
+    background: #f6e4d6;
     border: none;
     border-radius: 16px;
 }
@@ -109,8 +109,10 @@ QPushButton#PrimaryButton:disabled {
 }
 
 QPushButton#SecondaryButton {
-    border-radius: 18px;
-    padding: 8px 14px;
+    border-radius: 22px;
+    padding: 10px 18px;
+    min-height: 24px;
+    font-size: 14px;
 }
 
 QToolButton {
@@ -127,9 +129,9 @@ QToolButton:hover {
 }
 
 QLineEdit, QSpinBox, QComboBox {
-    background: #fffdfb;
+    background: #fff7f1;
     border: none;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 7px 10px;
     min-height: 22px;
 }
@@ -173,7 +175,7 @@ QSpinBox::down-arrow {
 }
 
 QListWidget {
-    background: #fffdfb;
+    background: #fff7f1;
     border: none;
     border-radius: 12px;
     padding: 6px;
