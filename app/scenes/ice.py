@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Сцена Ice: таяние айсберга по мере прогресса."""
+
 from math import sin
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -10,6 +12,7 @@ from app.scenes.base import BaseScene
 
 
 class IceScene(BaseScene):
+    """Визуализация ледяной темы с водой, каплями и трещинами."""
     name = "Ice"
     def __init__(self) -> None:
         self._pixmap = load_pixmap("scenes/ice.png")

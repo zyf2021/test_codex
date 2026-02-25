@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Главное окно приложения: сборка UI, управление таймером и статистикой."""
+
 import time
 from datetime import date, datetime, timedelta
 
@@ -36,6 +38,7 @@ from app.scenes.ice import IceScene
 
 
 class SceneWidget(QWidget):
+    """Виджет отрисовки текущей сцены и кругового индикатора времени."""
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setMinimumSize(600, 420)
@@ -85,6 +88,7 @@ class SceneWidget(QWidget):
 
 
 class MainWindow(QMainWindow):
+    """Оркестратор интерфейса, таймера, сцен и пользовательских действий."""
     PRESETS: dict[str, tuple[int, int]] = {
         "Pomodoro 25/5": (25, 5),
         "Deep 50/10": (50, 10),
@@ -135,6 +139,7 @@ class MainWindow(QMainWindow):
         self._update_buttons()
 
     def _build_ui(self) -> None:
+        """Создает и композитит все визуальные блоки главного окна."""
         central = QWidget(self)
         self.setCentralWidget(central)
 
@@ -268,6 +273,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.start_session)
 
     def _connect_signals(self) -> None:
+        """Связывает сигналы Qt с обработчиками логики."""
         self.start_btn.clicked.connect(self.start_session)
         self.pause_btn.clicked.connect(self.pause_session)
         self.resume_btn.clicked.connect(self.resume_session)
@@ -420,6 +426,7 @@ class MainWindow(QMainWindow):
             self.resume_session()
 
     def start_session(self) -> None:
+        """Запускает новую фокус-сессию из текущих настроек."""
         if self.timer.state not in {TimerState.IDLE, TimerState.FINISHED, TimerState.FAILED}:
             return
         self._apply_preset()
@@ -474,6 +481,7 @@ class MainWindow(QMainWindow):
         self._update_buttons()
 
     def _on_frame(self) -> None:
+        """Периодический тик: обновляет таймер, сцену, прогресс и кнопки."""
         now = time.monotonic()
         prev_state = self.timer.state
         snapshot = self.timer.tick(now)
@@ -518,6 +526,7 @@ class MainWindow(QMainWindow):
         return streak
 
     def refresh_stats(self) -> None:
+        """Пересчитывает и отображает статистику из БД."""
         rows = self.storage.list_sessions(limit=50)
         self.coins_label.setText(str(self.app_state.coins_balance))
         self.today_success_label.setText(str(self._success_today(rows)))

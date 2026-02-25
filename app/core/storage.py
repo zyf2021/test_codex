@@ -1,5 +1,7 @@
-"""Backward-compatible storage import path."""
+"""Совместимый re-export слоя хранения.
 
-from app.data.storage import MAX_TASKS, InventoryRow, SessionRow, Storage, TaskRow
+Модуль оставлен для обратной совместимости импортов: фактическая
+реализация `Storage` и связанных структур находится в `app.data.storage`.
+"""
 
-__all__ = ["Storage", "SessionRow", "TaskRow", "InventoryRow", "MAX_TASKS"]
+from app.data.storage import *  # noqa: F403

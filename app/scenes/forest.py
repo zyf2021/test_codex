@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Сцена Forest: рост растения по мере прогресса фокуса."""
+
 from math import sin
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -9,6 +11,7 @@ from app.scenes.base import BaseScene
 
 
 class ForestScene(BaseScene):
+    """Визуализация лесной темы: стебель, листья, цветок."""
     name = "Forest"
 
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Централизованное состояние приложения и бизнес-событий UI."""
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -37,6 +39,7 @@ THEME_ALIASES = {
 
 @dataclass
 class SessionState:
+    """Снимок активной фокус-сессии для синхронизации UI и таймера."""
     started_at: str
     duration_sec: int
     theme: str
@@ -45,6 +48,7 @@ class SessionState:
 
 
 class AppState(QObject):
+    """Единая точка управления темой, настройками, монетами и задачами."""
     state_changed = pyqtSignal()
     coins_changed = pyqtSignal(int)
     theme_changed = pyqtSignal(str)
@@ -61,6 +65,7 @@ class AppState(QObject):
         self.tasks: list[TaskRow] = []
 
     def load_from_storage(self, storage: Storage) -> None:
+        """Инициализирует состояние из постоянного хранилища."""
         self._storage = storage
         saved_theme = storage.get_setting("selected_theme", "forest")
         self.selected_theme = self._normalize_theme(str(saved_theme))
@@ -74,6 +79,7 @@ class AppState(QObject):
         self.tasks_changed.emit()
 
     def save_setting(self, key: str, value: Any) -> None:
+        """Сохраняет настройку и уведомляет подписчиков о смене состояния."""
         self.settings[key] = value
         if self._storage:
             self._storage.set_setting("settings", self.settings)
@@ -81,6 +87,7 @@ class AppState(QObject):
         self.state_changed.emit()
 
     def set_theme(self, theme: str) -> None:
+        """Нормализует и применяет выбранную пользователем тему."""
         normalized = self._normalize_theme(theme)
         self.selected_theme = normalized
         if self._storage:
@@ -89,6 +96,7 @@ class AppState(QObject):
         self.state_changed.emit()
 
     def add_coins(self, amount: int, reason: str = "") -> None:
+        """Изменяет баланс монет с защитой от отрицательных значений."""
         self.coins_balance = max(0, self.coins_balance + amount)
         if self._storage:
             self._storage.set_coins_balance(self.coins_balance)
@@ -98,6 +106,7 @@ class AppState(QObject):
         self.state_changed.emit()
 
     def start_session(self, duration_sec: int, theme: str) -> None:
+        """Создает новую активную сессию в оперативном состоянии."""
         self.current_session = SessionState(
             started_at=datetime.now().isoformat(timespec="seconds"),
             duration_sec=duration_sec,
@@ -115,6 +124,7 @@ class AppState(QObject):
         self.state_changed.emit()
 
     def finish_session(self, success: bool, coins_earned: int, duration_sec: int | None = None) -> None:
+        """Завершает сессию, пишет результат в БД и начисляет награду при успехе."""
         if not self.current_session:
             return
         session_id: int | None = None
