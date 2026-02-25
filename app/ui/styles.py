@@ -130,23 +130,6 @@ QFrame#TaskRow {
     border-radius: 18px;
 }
 
-QToolButton#ArrowAdjustButton {
-    background: #f8efe8;
-    border: none;
-    border-radius: 12px;
-    min-width: 28px;
-    min-height: 28px;
-    padding: 2px;
-    margin-left: 4px;
-    color: #7a5742;
-    font-size: 12px;
-    font-weight: 700;
-}
-
-QToolButton#ArrowAdjustButton:hover {
-    background: #f2e4d9;
-}
-
 QToolButton {
     border: none;
     background: #f8efe8;
