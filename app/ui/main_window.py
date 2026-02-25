@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 from datetime import date, datetime, timedelta
 
-from PyQt6.QtCore import QRect, QTimer, Qt
-from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QShortcut
+from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtGui import QColor, QKeySequence, QPainter, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -43,7 +43,7 @@ from app.ui.styles import apply_theme
 
 
 class SceneWidget(QWidget):
-    """Виджет отрисовки текущей сцены и кругового индикатора времени."""
+    """Виджет отрисовки текущей сцены без дублирующего индикатора таймера."""
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setMinimumSize(600, 420)
@@ -75,21 +75,6 @@ class SceneWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.rect().adjusted(10, 10, -10, -10)
         self._scene.render(painter, rect, self._progress, self._failed, self._time_s)
-
-        diameter = int(min(rect.width(), rect.height()) * 0.35)
-        x = rect.left() + 16
-        y = rect.top() + 16
-        circle_rect = QRect(x, y, diameter, diameter)
-
-        painter.setPen(QPen(QColor(255, 255, 255, 180), 8))
-        painter.drawEllipse(circle_rect)
-        painter.setPen(QPen(QColor("#ffca28"), 8))
-        span = int(-360 * 16 * self._progress)
-        painter.drawArc(circle_rect, 90 * 16, span)
-
-        painter.setPen(QColor("#263238"))
-        painter.setFont(self.font())
-        painter.drawText(circle_rect, Qt.AlignmentFlag.AlignCenter, self._remaining_text)
 
 
 class MainWindow(QMainWindow):
@@ -207,7 +192,6 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.focus_minus_btn, 2, 2)
         controls_layout.addWidget(QLabel("Scene:"), 3, 0)
         controls_layout.addWidget(self.scene_combo, 3, 1, 1, 2)
-        left_layout.addWidget(controls_card)
 
         scene_card = QFrame()
         scene_card.setObjectName("SceneCard")
@@ -260,6 +244,7 @@ class MainWindow(QMainWindow):
         timer_layout.addLayout(actions_row)
 
         left_layout.addWidget(timer_card, 2)
+        left_layout.addWidget(controls_card)
 
         right_layout = QVBoxLayout(right)
         right_layout.setSpacing(12)
