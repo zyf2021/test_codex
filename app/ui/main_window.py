@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
         self.tasks_panel.setFixedWidth(290)
         self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         tasks_layout = QVBoxLayout(self.tasks_panel)
-        self.tasks_title = QLabel(f"Задачи (0/{MAX_TASKS})")
+        self.tasks_title = QLabel(self._tasks_counter_text(done_count=0, total_count=0))
         tasks_layout.addWidget(self.tasks_title)
 
         input_row = QHBoxLayout()
@@ -282,6 +282,7 @@ class MainWindow(QMainWindow):
         self.task_input.returnPressed.connect(self._on_add_task)
 
     def _refresh_tasks_panel(self) -> None:
+        """Перестраивает список задач и синхронизирует счетчик/ограничения панели."""
         self.tasks_list.clear()
         tasks = self.app_state.tasks
         for index, task in enumerate(tasks):
@@ -292,7 +293,7 @@ class MainWindow(QMainWindow):
             self.tasks_list.setItemWidget(item, row_widget)
 
         done_count = sum(1 for task in tasks if task.is_done)
-        self.tasks_title.setText(f"Задачи ({done_count}/{MAX_TASKS})")
+        self.tasks_title.setText(self._tasks_counter_text(done_count=done_count, total_count=len(tasks)))
         limit_reached = len(tasks) >= MAX_TASKS
         self.add_task_btn.setEnabled(not limit_reached)
         self.task_input.setToolTip("Максимум 5 задач" if limit_reached else "")
@@ -339,6 +340,11 @@ class MainWindow(QMainWindow):
         if self.app_state.add_task(self.task_input.text()):
             self.task_input.clear()
         self.task_input.setFocus()
+
+    @staticmethod
+    def _tasks_counter_text(done_count: int, total_count: int) -> str:
+        """Форматирует заголовок панели в виде `выполнено/всего` для текущего списка задач."""
+        return f"Задачи ({done_count}/{total_count})"
 
     def _load_timer_settings(self) -> None:
         settings = self.app_state.settings
