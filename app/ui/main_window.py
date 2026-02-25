@@ -8,9 +8,12 @@ from datetime import date, datetime, timedelta
 from PyQt6.QtCore import QRect, QTimer, Qt
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QShortcut
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
+    QFrame,
     QFormLayout,
+    QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -20,6 +23,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QProgressBar,
     QSizePolicy,
     QSpinBox,
     QSplitter,
@@ -35,6 +39,7 @@ from app.scenes.base import BaseScene
 from app.scenes.flight import FlightScene
 from app.scenes.forest import ForestScene
 from app.scenes.ice import IceScene
+from app.ui.styles import apply_theme
 
 
 class SceneWidget(QWidget):
@@ -113,6 +118,10 @@ class MainWindow(QMainWindow):
         self.theme_to_ui = {"forest": "Forest", "flight": "Flight", "ice": "Ice"}
         self.ui_to_theme = {v: k for k, v in self.theme_to_ui.items()}
 
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app)
+
         self._build_ui()
         self._load_timer_settings()
         self._connect_signals()
@@ -140,27 +149,36 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         """Создает и композитит все визуальные блоки главного окна."""
-        # Корневой контейнер окна: в нем размещается вся остальная компоновка.
         central = QWidget(self)
         self.setCentralWidget(central)
 
-        # Основной горизонтальный split: слева — таймер/сцена, справа — статистика.
+        root_layout = QHBoxLayout(central)
+        root_layout.setContentsMargins(24, 24, 24, 24)
+        root_layout.setSpacing(24)
+
         split = QSplitter(Qt.Orientation.Horizontal)
+        split.setChildrenCollapsible(False)
+        split.setHandleWidth(18)
+        root_layout.addWidget(split, 1)
+
         left = QWidget()
         right = QWidget()
         split.addWidget(left)
         split.addWidget(right)
-        split.setStretchFactor(0, 3)
+        split.setStretchFactor(0, 5)
         split.setStretchFactor(1, 2)
 
-        root_layout = QHBoxLayout(central)
-        root_layout.addWidget(split, 1)
-
-        # Левая колонка: верхняя панель настроек, затем сцена, затем кнопки управления.
         left_layout = QVBoxLayout(left)
-        top_grid = QGridLayout()
+        left_layout.setSpacing(14)
+        left_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Блок настроек сессии: пресет, длительность фокуса/перерыва и авто-цикл.
+        controls_card = QFrame()
+        controls_card.setObjectName("Card")
+        controls_layout = QGridLayout(controls_card)
+        controls_layout.setContentsMargins(14, 14, 14, 14)
+        controls_layout.setHorizontalSpacing(10)
+        controls_layout.setVerticalSpacing(8)
+
         self.preset_combo = QComboBox()
         self.preset_combo.addItems(list(self.PRESETS.keys()))
 
@@ -171,93 +189,166 @@ class MainWindow(QMainWindow):
         self.auto_cycle_checkbox = QCheckBox("Авто-цикл")
 
         self.focus_plus_btn = QPushButton("+5 min")
+        self.focus_plus_btn.setObjectName("SecondaryButton")
         self.focus_minus_btn = QPushButton("-5 min")
+        self.focus_minus_btn.setObjectName("SecondaryButton")
 
-        # Выбор визуальной сцены (тематическое оформление анимации прогресса).
         self.scene_combo = QComboBox()
         self.scene_combo.addItems(list(self.scenes.keys()))
 
-        top_grid.addWidget(QLabel("Preset:"), 0, 0)
-        top_grid.addWidget(self.preset_combo, 0, 1)
-        top_grid.addWidget(self.auto_cycle_checkbox, 0, 2)
-        top_grid.addWidget(QLabel("Focus (min):"), 1, 0)
-        top_grid.addWidget(self.focus_minutes, 1, 1)
-        top_grid.addWidget(self.focus_plus_btn, 1, 2)
-        top_grid.addWidget(QLabel("Break (min):"), 2, 0)
-        top_grid.addWidget(self.break_minutes, 2, 1)
-        top_grid.addWidget(self.focus_minus_btn, 2, 2)
-        top_grid.addWidget(QLabel("Scene:"), 3, 0)
-        top_grid.addWidget(self.scene_combo, 3, 1)
+        controls_layout.addWidget(QLabel("Preset:"), 0, 0)
+        controls_layout.addWidget(self.preset_combo, 0, 1)
+        controls_layout.addWidget(self.auto_cycle_checkbox, 0, 2)
+        controls_layout.addWidget(QLabel("Focus (min):"), 1, 0)
+        controls_layout.addWidget(self.focus_minutes, 1, 1)
+        controls_layout.addWidget(self.focus_plus_btn, 1, 2)
+        controls_layout.addWidget(QLabel("Break (min):"), 2, 0)
+        controls_layout.addWidget(self.break_minutes, 2, 1)
+        controls_layout.addWidget(self.focus_minus_btn, 2, 2)
+        controls_layout.addWidget(QLabel("Scene:"), 3, 0)
+        controls_layout.addWidget(self.scene_combo, 3, 1, 1, 2)
+        left_layout.addWidget(controls_card)
 
-        left_layout.addLayout(top_grid)
-
-        # Центральный визуальный блок: отрисовка текущей сцены и кругового прогресса.
+        scene_card = QFrame()
+        scene_card.setObjectName("SceneCard")
+        scene_layout = QVBoxLayout(scene_card)
+        scene_layout.setContentsMargins(10, 10, 10, 10)
         self.scene_widget = SceneWidget()
-        left_layout.addWidget(self.scene_widget, 1)
+        self.scene_widget.setMinimumHeight(420)
+        scene_layout.addWidget(self.scene_widget)
+        left_layout.addWidget(scene_card, 5)
 
-        # Нижняя полоса управления таймером: запуск/пауза/продолжение/остановка.
-        controls = QHBoxLayout()
+        timer_card = QFrame()
+        timer_card.setObjectName("Card")
+        timer_layout = QVBoxLayout(timer_card)
+        timer_layout.setContentsMargins(18, 18, 18, 18)
+        timer_layout.setSpacing(10)
+
+        timer_caption = QLabel("Фокус-таймер")
+        timer_caption.setObjectName("SubtleTitle")
+        timer_layout.addWidget(timer_caption, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        self.timer_label = QLabel("25:00")
+        self.timer_label.setObjectName("TimerLabel")
+        timer_layout.addWidget(self.timer_label, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        self.timer_progress = QProgressBar()
+        self.timer_progress.setRange(0, 1000)
+        self.timer_progress.setValue(0)
+        self.timer_progress.setTextVisible(False)
+        timer_layout.addWidget(self.timer_progress)
+
+        actions_row = QHBoxLayout()
+        actions_row.addStretch()
         self.start_btn = QPushButton("Start")
+        self.start_btn.setObjectName("PrimaryButton")
+        self.start_btn.setMinimumWidth(170)
         self.pause_btn = QPushButton("Pause")
+        self.pause_btn.setObjectName("PrimaryButton")
+        self.pause_btn.setMinimumWidth(170)
         self.resume_btn = QPushButton("Resume")
+        self.resume_btn.setObjectName("PrimaryButton")
+        self.resume_btn.setMinimumWidth(170)
         self.stop_btn = QPushButton("Stop")
-        controls.addWidget(self.start_btn)
-        controls.addWidget(self.pause_btn)
-        controls.addWidget(self.resume_btn)
-        controls.addWidget(self.stop_btn)
-        controls.addStretch()
-        left_layout.addLayout(controls)
+        self.stop_btn.setObjectName("SecondaryButton")
+        self.stop_btn.setMinimumWidth(120)
+        actions_row.addWidget(self.start_btn)
+        actions_row.addWidget(self.pause_btn)
+        actions_row.addWidget(self.resume_btn)
+        actions_row.addWidget(self.stop_btn)
+        actions_row.addStretch()
+        timer_layout.addLayout(actions_row)
 
-        # Правая колонка split: агрегированная статистика + история последних сессий.
+        left_layout.addWidget(timer_card, 2)
+
         right_layout = QVBoxLayout(right)
-        # Блок числовой статистики (coins, успехи за день, streak, циклы).
-        stats_box = QWidget()
-        stats_form = QFormLayout(stats_box)
+        right_layout.setSpacing(12)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        stats_card = QFrame()
+        stats_card.setObjectName("Card")
+        stats_layout = QVBoxLayout(stats_card)
+        stats_layout.setContentsMargins(14, 14, 14, 14)
+        stats_layout.setSpacing(10)
+
+        stats_title = QLabel("Statistics")
+        stats_title.setObjectName("SubtleTitle")
+        stats_layout.addWidget(stats_title)
+
+        stats_form = QFormLayout()
+        stats_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         self.coins_label = QLabel("0")
         self.today_success_label = QLabel("0")
         self.streak_label = QLabel("0")
         self.cycles_label = QLabel("0")
+        for lbl in (self.coins_label, self.today_success_label, self.streak_label, self.cycles_label):
+            lbl.setObjectName("StatValue")
         stats_form.addRow("Coins:", self.coins_label)
         stats_form.addRow("Success today:", self.today_success_label)
         stats_form.addRow("Current streak:", self.streak_label)
         stats_form.addRow("Completed cycles:", self.cycles_label)
+        stats_layout.addLayout(stats_form)
+        right_layout.addWidget(stats_card)
 
-        # Список недавних сессий (дата, длительность, тема, статус).
-        self.history_list = QListWidget()
-        right_layout.addWidget(QLabel("Statistics"))
-        right_layout.addWidget(stats_box)
-
-        # Узкая панель задач внутри правой колонки: между статистикой и recent sessions.
-        self.tasks_panel = QWidget()
-        self.tasks_panel.setFixedWidth(290)
-        self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.tasks_panel = QFrame()
+        self.tasks_panel.setObjectName("Panel")
+        self.tasks_panel.setMinimumWidth(300)
+        self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         tasks_layout = QVBoxLayout(self.tasks_panel)
+        tasks_layout.setContentsMargins(14, 14, 14, 14)
+        tasks_layout.setSpacing(10)
+
         self.tasks_title = QLabel(self._tasks_counter_text(done_count=0, total_count=0))
+        self.tasks_title.setObjectName("SubtleTitle")
         tasks_layout.addWidget(self.tasks_title)
 
         input_row = QHBoxLayout()
+        input_row.setSpacing(8)
         self.task_input = QLineEdit()
         self.task_input.setPlaceholderText("Добавить задачу…")
         self.add_task_btn = QPushButton("+")
-        self.add_task_btn.setFixedWidth(36)
+        self.add_task_btn.setObjectName("PrimaryButton")
+        self.add_task_btn.setFixedWidth(40)
+        self.add_task_btn.setToolTip("Добавить задачу")
         input_row.addWidget(self.task_input, 1)
         input_row.addWidget(self.add_task_btn)
         tasks_layout.addLayout(input_row)
 
         self.max_tasks_label = QLabel("Максимум 5 задач")
+        self.max_tasks_label.setObjectName("MutedText")
         self.max_tasks_label.setVisible(False)
         tasks_layout.addWidget(self.max_tasks_label)
 
         self.tasks_list = QListWidget()
         tasks_layout.addWidget(self.tasks_list, 1)
+        right_layout.addWidget(self.tasks_panel, 2)
 
-        right_layout.addWidget(self.tasks_panel, 1)
-        right_layout.addWidget(QLabel("Recent sessions"))
-        right_layout.addWidget(self.history_list, 1)
+        history_card = QFrame()
+        history_card.setObjectName("Card")
+        history_layout = QVBoxLayout(history_card)
+        history_layout.setContentsMargins(14, 14, 14, 14)
+        history_layout.setSpacing(8)
+        history_title = QLabel("Recent sessions")
+        history_title.setObjectName("SubtleTitle")
+        self.history_list = QListWidget()
+        history_layout.addWidget(history_title)
+        history_layout.addWidget(self.history_list, 1)
+        right_layout.addWidget(history_card, 2)
 
-        # Горячие клавиши: Space — пауза/продолжить, Ctrl+Enter — старт сессии.
+        self._add_soft_shadow(scene_card)
+        self._add_soft_shadow(timer_card)
+        self._add_soft_shadow(self.tasks_panel)
+
         QShortcut(QKeySequence("Space"), self, activated=self._space_toggle)
         QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.start_session)
+
+
+    def _add_soft_shadow(self, widget: QWidget) -> None:
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(24)
+        shadow.setOffset(0, 4)
+        shadow.setColor(QColor(130, 110, 95, 55))
+        widget.setGraphicsEffect(shadow)
 
     def _connect_signals(self) -> None:
         """Связывает сигналы Qt с обработчиками логики."""
@@ -300,9 +391,11 @@ class MainWindow(QMainWindow):
         self.max_tasks_label.setVisible(limit_reached)
 
     def _build_task_row(self, task: TaskRow, index: int, total: int) -> QWidget:
-        row = QWidget()
+        row = QFrame()
+        row.setObjectName("Card")
         layout = QHBoxLayout(row)
-        layout.setContentsMargins(4, 2, 4, 2)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(6)
 
         done_checkbox = QCheckBox()
         done_checkbox.setChecked(task.is_done)
@@ -313,16 +406,19 @@ class MainWindow(QMainWindow):
 
         up_btn = QToolButton()
         up_btn.setText("↑")
+        up_btn.setToolTip("Выше")
         up_btn.setEnabled(index > 0)
         up_btn.clicked.connect(lambda _checked=False, task_id=task.id: self.app_state.move_task_up(task_id))
 
         down_btn = QToolButton()
         down_btn.setText("↓")
+        down_btn.setToolTip("Ниже")
         down_btn.setEnabled(index < total - 1)
         down_btn.clicked.connect(lambda _checked=False, task_id=task.id: self.app_state.move_task_down(task_id))
 
         delete_btn = QToolButton()
         delete_btn.setText("×")
+        delete_btn.setToolTip("Удалить")
         delete_btn.clicked.connect(lambda _checked=False, task_id=task.id: self.app_state.remove_task(task_id))
 
         layout.addWidget(done_checkbox)
@@ -353,6 +449,8 @@ class MainWindow(QMainWindow):
         self.break_minutes.setValue(int(settings.get("break_minutes", 5)))
         self.auto_cycle_checkbox.setChecked(bool(settings.get("auto_cycle", False)))
         self._apply_preset()
+        self.timer_label.setText(f"{self.timer.focus_duration_sec // 60:02d}:{self.timer.focus_duration_sec % 60:02d}")
+        self.timer_progress.setValue(0)
 
     def _save_timer_settings(self) -> None:
         self.app_state.save_setting("preset", self.preset_combo.currentText())
@@ -471,6 +569,8 @@ class MainWindow(QMainWindow):
         self.timer.reset()
         self.failed_animation = False
         self.scene_widget.set_timer_state(self.timer.state)
+        self.timer_label.setText(f"{self.timer.focus_duration_sec // 60:02d}:{self.timer.focus_duration_sec % 60:02d}")
+        self.timer_progress.setValue(0)
         self._update_buttons()
 
     def _on_frame(self) -> None:
@@ -490,6 +590,8 @@ class MainWindow(QMainWindow):
         self.cycles_label.setText(str(self.timer.completed_focus_sessions))
 
         remaining_text = f"{snapshot.remaining_seconds // 60:02d}:{snapshot.remaining_seconds % 60:02d}"
+        self.timer_label.setText(remaining_text)
+        self.timer_progress.setValue(int(snapshot.progress * 1000))
         self.scene_widget.set_state(snapshot.progress, self.failed_animation, now, remaining_text)
         self._update_buttons()
 
@@ -500,10 +602,19 @@ class MainWindow(QMainWindow):
 
     def _update_buttons(self) -> None:
         state = self.timer.state
-        self.start_btn.setEnabled(state in {TimerState.IDLE, TimerState.FAILED, TimerState.FINISHED})
-        self.pause_btn.setEnabled(state in {TimerState.FOCUS_RUNNING, TimerState.BREAK_RUNNING})
-        self.resume_btn.setEnabled(state in {TimerState.FOCUS_PAUSED, TimerState.BREAK_PAUSED})
-        self.stop_btn.setEnabled(state in {TimerState.FOCUS_RUNNING, TimerState.FOCUS_PAUSED, TimerState.BREAK_RUNNING, TimerState.BREAK_PAUSED})
+        can_start = state in {TimerState.IDLE, TimerState.FAILED, TimerState.FINISHED}
+        can_pause = state in {TimerState.FOCUS_RUNNING, TimerState.BREAK_RUNNING}
+        can_resume = state in {TimerState.FOCUS_PAUSED, TimerState.BREAK_PAUSED}
+        can_stop = state in {TimerState.FOCUS_RUNNING, TimerState.FOCUS_PAUSED, TimerState.BREAK_RUNNING, TimerState.BREAK_PAUSED}
+
+        self.start_btn.setEnabled(can_start)
+        self.pause_btn.setEnabled(can_pause)
+        self.resume_btn.setEnabled(can_resume)
+        self.stop_btn.setEnabled(can_stop)
+
+        self.start_btn.setVisible(can_start)
+        self.pause_btn.setVisible(can_pause)
+        self.resume_btn.setVisible(can_resume)
 
     def _success_today(self, rows: list[SessionRow]) -> int:
         today = date.today().isoformat()
