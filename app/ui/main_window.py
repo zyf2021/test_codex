@@ -153,11 +153,12 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         root_layout = QHBoxLayout(central)
-        root_layout.setContentsMargins(20, 20, 20, 20)
-        root_layout.setSpacing(16)
+        root_layout.setContentsMargins(24, 24, 24, 24)
+        root_layout.setSpacing(24)
 
         split = QSplitter(Qt.Orientation.Horizontal)
         split.setChildrenCollapsible(False)
+        split.setHandleWidth(18)
         root_layout.addWidget(split, 1)
 
         left = QWidget()
