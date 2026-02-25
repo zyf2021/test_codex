@@ -150,8 +150,8 @@ class MainWindow(QMainWindow):
         right = QWidget()
         split.addWidget(left)
         split.addWidget(right)
-        split.setStretchFactor(0, 5)
-        split.setStretchFactor(1, 2)
+        split.setStretchFactor(0, 4)
+        split.setStretchFactor(1, 3)
 
         left_layout = QVBoxLayout(left)
         left_layout.setSpacing(14)
@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         self.resume_btn.setMinimumWidth(170)
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setObjectName("SecondaryButton")
-        self.stop_btn.setMinimumWidth(120)
+        self.stop_btn.setMinimumWidth(170)
         actions_row.addWidget(self.start_btn)
         actions_row.addWidget(self.pause_btn)
         actions_row.addWidget(self.resume_btn)
@@ -273,11 +273,11 @@ class MainWindow(QMainWindow):
         stats_form.addRow("Current streak:", self.streak_label)
         stats_form.addRow("Completed cycles:", self.cycles_label)
         stats_layout.addLayout(stats_form)
-        right_layout.addWidget(stats_card)
+        right_layout.addWidget(stats_card, 0)
 
         self.tasks_panel = QFrame()
         self.tasks_panel.setObjectName("Panel")
-        self.tasks_panel.setMinimumWidth(300)
+        self.tasks_panel.setMinimumWidth(280)
         self.tasks_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         tasks_layout = QVBoxLayout(self.tasks_panel)
         tasks_layout.setContentsMargins(14, 14, 14, 14)
@@ -306,7 +306,7 @@ class MainWindow(QMainWindow):
 
         self.tasks_list = QListWidget()
         tasks_layout.addWidget(self.tasks_list, 1)
-        right_layout.addWidget(self.tasks_panel, 2)
+        right_layout.addWidget(self.tasks_panel, 3)
 
         history_card = QFrame()
         history_card.setObjectName("Card")
@@ -320,9 +320,14 @@ class MainWindow(QMainWindow):
         history_layout.addWidget(self.history_list, 1)
         right_layout.addWidget(history_card, 2)
 
+        self.history_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
         self._add_soft_shadow(scene_card)
         self._add_soft_shadow(timer_card)
+        self._add_soft_shadow(controls_card)
+        self._add_soft_shadow(stats_card)
         self._add_soft_shadow(self.tasks_panel)
+        self._add_soft_shadow(history_card)
 
         QShortcut(QKeySequence("Space"), self, activated=self._space_toggle)
         QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.start_session)
@@ -330,9 +335,9 @@ class MainWindow(QMainWindow):
 
     def _add_soft_shadow(self, widget: QWidget) -> None:
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(24)
-        shadow.setOffset(0, 4)
-        shadow.setColor(QColor(130, 110, 95, 55))
+        shadow.setBlurRadius(30)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(120, 95, 78, 78))
         widget.setGraphicsEffect(shadow)
 
     def _connect_signals(self) -> None:
