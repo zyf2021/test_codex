@@ -48,6 +48,14 @@ QLabel#SubtleTitle {
     color: #6f645b;
 }
 
+QPushButton#TaskAddButton {
+    border-radius: 14px;
+    padding: 4px 8px;
+    min-height: 20px;
+    min-width: 30px;
+    font-size: 16px;
+}
+
 QLabel#TimerLabel {
     font-size: 58px;
     font-weight: 700;
@@ -115,6 +123,30 @@ QPushButton#SecondaryButton {
     font-size: 14px;
 }
 
+
+QFrame#TaskRow {
+    background: #f6e4d6;
+    border: none;
+    border-radius: 18px;
+}
+
+QToolButton#ArrowAdjustButton {
+    background: #f8efe8;
+    border: none;
+    border-radius: 12px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 2px;
+    margin-left: 4px;
+    color: #7a5742;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+QToolButton#ArrowAdjustButton:hover {
+    background: #f2e4d9;
+}
+
 QToolButton {
     border: none;
     background: #f8efe8;
@@ -177,8 +209,17 @@ QSpinBox::down-arrow {
 QListWidget {
     background: #fff7f1;
     border: none;
-    border-radius: 12px;
+    border-radius: 18px;
     padding: 6px;
+}
+
+QLineEdit#TaskInput {
+    border-radius: 20px;
+    padding: 7px 12px;
+}
+
+QListWidget#TaskList {
+    border-radius: 20px;
 }
 
 QListWidget::item {
@@ -223,6 +264,48 @@ QProgressBar::chunk {
 QSplitter::handle {
     background: transparent;
     width: 18px;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    border: none;
+    width: 10px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+    background: #eb8f60;
+    border: none;
+    border-radius: 5px;
+    min-height: 28px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::up-arrow:vertical,
+QScrollBar::down-arrow:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical,
+QScrollBar::left-arrow:horizontal,
+QScrollBar::right-arrow:horizontal {
+    border: none;
+    background: transparent;
+    width: 0;
+    height: 0;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    border: none;
+    height: 10px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #eb8f60;
+    border: none;
+    border-radius: 5px;
+    min-width: 28px;
 }
 """
 

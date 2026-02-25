@@ -173,10 +173,14 @@ class MainWindow(QMainWindow):
         self.break_minutes.setRange(1, 120)
         self.auto_cycle_checkbox = QCheckBox("Авто-цикл")
 
-        self.focus_plus_btn = QPushButton("+5 min")
-        self.focus_plus_btn.setObjectName("SecondaryButton")
-        self.focus_minus_btn = QPushButton("-5 min")
-        self.focus_minus_btn.setObjectName("SecondaryButton")
+        self.focus_plus_btn = QToolButton()
+        self.focus_plus_btn.setText("▲")
+        self.focus_plus_btn.setToolTip("Увеличить фокус")
+        self.focus_plus_btn.setObjectName("ArrowAdjustButton")
+        self.focus_minus_btn = QToolButton()
+        self.focus_minus_btn.setText("▼")
+        self.focus_minus_btn.setToolTip("Уменьшить перерыв")
+        self.focus_minus_btn.setObjectName("ArrowAdjustButton")
 
         self.scene_combo = QComboBox()
         self.scene_combo.addItems(list(self.scenes.keys()))
@@ -184,14 +188,15 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(QLabel("Preset:"), 0, 0)
         controls_layout.addWidget(self.preset_combo, 0, 1)
         controls_layout.addWidget(self.auto_cycle_checkbox, 0, 2)
+        controls_layout.setColumnMinimumWidth(2, 8)
         controls_layout.addWidget(QLabel("Focus (min):"), 1, 0)
         controls_layout.addWidget(self.focus_minutes, 1, 1)
-        controls_layout.addWidget(self.focus_plus_btn, 1, 2)
+        controls_layout.addWidget(self.focus_plus_btn, 1, 3)
         controls_layout.addWidget(QLabel("Break (min):"), 2, 0)
         controls_layout.addWidget(self.break_minutes, 2, 1)
-        controls_layout.addWidget(self.focus_minus_btn, 2, 2)
+        controls_layout.addWidget(self.focus_minus_btn, 2, 3)
         controls_layout.addWidget(QLabel("Scene:"), 3, 0)
-        controls_layout.addWidget(self.scene_combo, 3, 1, 1, 2)
+        controls_layout.addWidget(self.scene_combo, 3, 1, 1, 3)
 
         scene_card = QFrame()
         scene_card.setObjectName("SceneCard")
@@ -258,7 +263,7 @@ class MainWindow(QMainWindow):
 
         stats_title = QLabel("Statistics")
         stats_title.setObjectName("SubtleTitle")
-        stats_layout.addWidget(stats_title)
+        stats_layout.addWidget(stats_title, 0, Qt.AlignmentFlag.AlignHCenter)
 
         stats_form = QFormLayout()
         stats_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -285,15 +290,16 @@ class MainWindow(QMainWindow):
 
         self.tasks_title = QLabel(self._tasks_counter_text(done_count=0, total_count=0))
         self.tasks_title.setObjectName("SubtleTitle")
-        tasks_layout.addWidget(self.tasks_title)
+        tasks_layout.addWidget(self.tasks_title, 0, Qt.AlignmentFlag.AlignHCenter)
 
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
         self.task_input = QLineEdit()
+        self.task_input.setObjectName("TaskInput")
         self.task_input.setPlaceholderText("Добавить задачу…")
         self.add_task_btn = QPushButton("+")
-        self.add_task_btn.setObjectName("PrimaryButton")
-        self.add_task_btn.setFixedWidth(40)
+        self.add_task_btn.setObjectName("TaskAddButton")
+        self.add_task_btn.setFixedWidth(32)
         self.add_task_btn.setToolTip("Добавить задачу")
         input_row.addWidget(self.task_input, 1)
         input_row.addWidget(self.add_task_btn)
@@ -305,6 +311,7 @@ class MainWindow(QMainWindow):
         tasks_layout.addWidget(self.max_tasks_label)
 
         self.tasks_list = QListWidget()
+        self.tasks_list.setObjectName("TaskList")
         tasks_layout.addWidget(self.tasks_list, 1)
         right_layout.addWidget(self.tasks_panel, 3)
 
@@ -316,7 +323,7 @@ class MainWindow(QMainWindow):
         history_title = QLabel("Recent sessions")
         history_title.setObjectName("SubtleTitle")
         self.history_list = QListWidget()
-        history_layout.addWidget(history_title)
+        history_layout.addWidget(history_title, 0, Qt.AlignmentFlag.AlignHCenter)
         history_layout.addWidget(self.history_list, 1)
         right_layout.addWidget(history_card, 2)
 
@@ -352,7 +359,7 @@ class MainWindow(QMainWindow):
         self.break_minutes.valueChanged.connect(self._on_manual_duration_changed)
         self.auto_cycle_checkbox.toggled.connect(self._save_timer_settings)
         self.focus_plus_btn.clicked.connect(lambda: self._adjust_focus_minutes(5))
-        self.focus_minus_btn.clicked.connect(lambda: self._adjust_focus_minutes(-5))
+        self.focus_minus_btn.clicked.connect(lambda: self._adjust_break_minutes(-1))
 
         self.scene_combo.currentTextChanged.connect(self._on_scene_changed)
         self.app_state.theme_changed.connect(self._sync_theme_from_state)
@@ -382,7 +389,7 @@ class MainWindow(QMainWindow):
 
     def _build_task_row(self, task: TaskRow, index: int, total: int) -> QWidget:
         row = QFrame()
-        row.setObjectName("Card")
+        row.setObjectName("TaskRow")
         layout = QHBoxLayout(row)
         layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(6)
@@ -493,6 +500,9 @@ class MainWindow(QMainWindow):
 
     def _adjust_focus_minutes(self, delta: int) -> None:
         self.focus_minutes.setValue(max(1, self.focus_minutes.value() + delta))
+
+    def _adjust_break_minutes(self, delta: int) -> None:
+        self.break_minutes.setValue(max(1, self.break_minutes.value() + delta))
 
     def _on_scene_changed(self) -> None:
         ui_theme = self.scene_combo.currentText()
