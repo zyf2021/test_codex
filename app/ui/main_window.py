@@ -173,15 +173,6 @@ class MainWindow(QMainWindow):
         self.break_minutes.setRange(1, 120)
         self.auto_cycle_checkbox = QCheckBox("Авто-цикл")
 
-        self.focus_plus_btn = QToolButton()
-        self.focus_plus_btn.setText("▲")
-        self.focus_plus_btn.setToolTip("Увеличить фокус")
-        self.focus_plus_btn.setObjectName("ArrowAdjustButton")
-        self.focus_minus_btn = QToolButton()
-        self.focus_minus_btn.setText("▼")
-        self.focus_minus_btn.setToolTip("Уменьшить перерыв")
-        self.focus_minus_btn.setObjectName("ArrowAdjustButton")
-
         self.scene_combo = QComboBox()
         self.scene_combo.addItems(list(self.scenes.keys()))
 
@@ -191,12 +182,10 @@ class MainWindow(QMainWindow):
         controls_layout.setColumnMinimumWidth(2, 8)
         controls_layout.addWidget(QLabel("Focus (min):"), 1, 0)
         controls_layout.addWidget(self.focus_minutes, 1, 1)
-        controls_layout.addWidget(self.focus_plus_btn, 1, 3)
         controls_layout.addWidget(QLabel("Break (min):"), 2, 0)
         controls_layout.addWidget(self.break_minutes, 2, 1)
-        controls_layout.addWidget(self.focus_minus_btn, 2, 3)
         controls_layout.addWidget(QLabel("Scene:"), 3, 0)
-        controls_layout.addWidget(self.scene_combo, 3, 1, 1, 3)
+        controls_layout.addWidget(self.scene_combo, 3, 1)
 
         scene_card = QFrame()
         scene_card.setObjectName("SceneCard")
@@ -358,9 +347,6 @@ class MainWindow(QMainWindow):
         self.focus_minutes.valueChanged.connect(self._on_manual_duration_changed)
         self.break_minutes.valueChanged.connect(self._on_manual_duration_changed)
         self.auto_cycle_checkbox.toggled.connect(self._save_timer_settings)
-        self.focus_plus_btn.clicked.connect(lambda: self._adjust_focus_minutes(5))
-        self.focus_minus_btn.clicked.connect(lambda: self._adjust_break_minutes(-1))
-
         self.scene_combo.currentTextChanged.connect(self._on_scene_changed)
         self.app_state.theme_changed.connect(self._sync_theme_from_state)
         self.app_state.coins_changed.connect(lambda _coins: self.refresh_stats())
@@ -468,8 +454,6 @@ class MainWindow(QMainWindow):
         custom = text == "Custom"
         self.focus_minutes.setEnabled(custom)
         self.break_minutes.setEnabled(custom)
-        self.focus_plus_btn.setEnabled(custom)
-        self.focus_minus_btn.setEnabled(custom)
 
         if text == "TEST 1:00/0:30":
             # 1 minute focus and 30 sec break for quick verification.
@@ -497,12 +481,6 @@ class MainWindow(QMainWindow):
             auto_cycle=self.auto_cycle_checkbox.isChecked(),
         )
         self._save_timer_settings()
-
-    def _adjust_focus_minutes(self, delta: int) -> None:
-        self.focus_minutes.setValue(max(1, self.focus_minutes.value() + delta))
-
-    def _adjust_break_minutes(self, delta: int) -> None:
-        self.break_minutes.setValue(max(1, self.break_minutes.value() + delta))
 
     def _on_scene_changed(self) -> None:
         ui_theme = self.scene_combo.currentText()
